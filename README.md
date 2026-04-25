@@ -4,7 +4,7 @@ A daily plant guessing game — one mystery plant, ten guesses, the picture clea
 
 Built with **React 18 + Vite**. Designed to be cloned into [PlantSwipe](https://github.com/Duckxel/PlantSwipe) as an embedded game.
 
-## Quick start
+## Quick start (development)
 
 ```bash
 # 1. Install dependencies
@@ -16,11 +16,26 @@ cp .env.example .env
 
 # 3. Start the dev server
 npm run dev
-
-# 4. Build for production
-npm run build
-npm run preview
 ```
+
+## Production deploy
+
+One-shot setup script — installs deps, bootstraps `.env`, builds the static
+bundle into `./dist`:
+
+```bash
+./setup.sh             # install + env + build
+./setup.sh --serve     # also start `vite preview` on :4173
+./setup.sh --skip-install   # rebuild without re-installing
+```
+
+After it runs, `./dist` is a plain static bundle that any web server can host.
+A sample nginx config is at `deploy/aphydle.nginx.conf` — point its `root` at
+the absolute path of `dist/`, drop it into `sites-enabled/`, and reload nginx.
+
+Hosting under a sub-path (e.g. `/games/aphydle/` inside PlantSwipe)? Set
+`VITE_APP_BASE_PATH=/games/aphydle/` before running `./setup.sh` so asset URLs
+resolve correctly.
 
 ## Environment variables
 
