@@ -1,6 +1,6 @@
-// Aphydle prototype data — plant catalog with full attributes for guess comparison
+// Aphydle plant catalog. In production these can come from Supabase.
 
-const ANSWER_PLANT = {
+export const ANSWER_PLANT = {
   id: "monstera-deliciosa",
   commonName: "Monstera deliciosa",
   scientificName: "Monstera deliciosa",
@@ -13,14 +13,14 @@ const ANSWER_PLANT = {
   nativeRegion: "Central America",
   toxicity: "Mildly toxic",
   dominantColors: ["deep green", "creamy variegation"],
-  imageUrl: "https://images.unsplash.com/photo-1614594975525-e45190c55d0b?w=1400&q=85&auto=format&fit=crop",
+  imageUrl:
+    "https://images.unsplash.com/photo-1614594975525-e45190c55d0b?w=1400&q=85&auto=format&fit=crop",
   fact:
     "Native to the cloud forests of southern Mexico, where it climbs trees using aerial roots that can grow up to 10 metres long. Its iconic leaf fenestrations are thought to let storm winds pass through the canopy.",
   commonMisguess: { name: "Monstera adansonii", percent: 63 },
 };
 
-// Each plant has the SAME attribute schema so guesses can be compared cell-by-cell.
-const GUESSABLE = [
+export const GUESSABLE = [
   { id: "monstera-deliciosa", name: "Monstera deliciosa", family: "Araceae", habitat: "Tropical rainforest", growthForm: "Vine", foliage: "Variegated", lightNeeds: "Bright indirect", nativeRegion: "Central America", toxicity: "Mildly toxic" },
   { id: "monstera-adansonii", name: "Monstera adansonii", family: "Araceae", habitat: "Tropical rainforest", growthForm: "Vine", foliage: "Solid green", lightNeeds: "Bright indirect", nativeRegion: "Central America", toxicity: "Mildly toxic" },
   { id: "philodendron-brasil", name: "Philodendron Brasil", family: "Araceae", habitat: "Tropical rainforest", growthForm: "Vine", foliage: "Variegated", lightNeeds: "Bright indirect", nativeRegion: "South America", toxicity: "Mildly toxic" },
@@ -55,8 +55,7 @@ const GUESSABLE = [
   { id: "oxalis-triangularis", name: "Oxalis triangularis", family: "Oxalidaceae", habitat: "Subtropical", growthForm: "Herbaceous", foliage: "Solid green", lightNeeds: "Bright indirect", nativeRegion: "South America", toxicity: "Mildly toxic" },
 ];
 
-// The columns shown in each guess comparison row, in display order.
-const COMPARE_COLUMNS = [
+export const COMPARE_COLUMNS = [
   { key: "family", label: "Family" },
   { key: "habitat", label: "Habitat" },
   { key: "growthForm", label: "Growth" },
@@ -66,7 +65,7 @@ const COMPARE_COLUMNS = [
   { key: "toxicity", label: "Toxicity" },
 ];
 
-const ARCHIVE = [
+export const ARCHIVE = [
   { no: 142, date: "WED 26 APR", name: "Monstera deliciosa", img: ANSWER_PLANT.imageUrl, you: "today", winRate: null },
   { no: 141, date: "TUE 25 APR", name: "Ficus lyrata", img: "https://images.unsplash.com/photo-1581793745862-99fde7fa73ce?w=800&q=80&auto=format&fit=crop", you: "won", guesses: 3, winRate: 78 },
   { no: 140, date: "MON 24 APR", name: "Pilea peperomioides", img: "https://images.unsplash.com/photo-1604762512526-b7068fe1eb44?w=800&q=80&auto=format&fit=crop", you: "won", guesses: 5, winRate: 64 },
@@ -77,17 +76,19 @@ const ARCHIVE = [
   { no: 135, date: "WED 19 APR", name: "ZZ Plant", img: "https://images.unsplash.com/photo-1632207691143-643e2a9a9361?w=800&q=80&auto=format&fit=crop", you: "won", guesses: 3, winRate: 81 },
 ];
 
-const TODAY_DISTRIBUTION = [12, 84, 312, 641, 783, 580, 327, 198, 102, 58, 30];
+export const TODAY_DISTRIBUTION = [12, 84, 312, 641, 783, 580, 327, 198, 102, 58, 30];
 
-const STATS = {
-  played: 142, won: 118, winPct: 83,
-  currentStreak: 12, maxStreak: 31, meanGuesses: 4.6,
+export const STATS = {
+  played: 142,
+  won: 118,
+  winPct: 83,
+  currentStreak: 12,
+  maxStreak: 31,
+  meanGuesses: 4.6,
   distribution: [4, 12, 28, 35, 22, 11, 4, 1, 1, 0, 24],
   heatmap: Array.from({ length: 90 }, (_, i) => {
     if (i % 17 === 0) return 0;
     if (i % 23 === 0) return 6;
-    return 1 + (i * 7) % 5;
+    return 1 + ((i * 7) % 5);
   }),
 };
-
-window.APHYDLE_DATA = { ANSWER_PLANT, GUESSABLE, ARCHIVE, TODAY_DISTRIBUTION, STATS, COMPARE_COLUMNS };
