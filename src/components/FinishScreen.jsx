@@ -1,7 +1,13 @@
+import { useEffect, useState } from "react";
 import { tokens } from "./ui/tokens.js";
 import { MosaicLeaf } from "./ui/MosaicLeaf.jsx";
 import { MosaicStrip } from "./ui/MosaicStrip.jsx";
 import { TODAY_DISTRIBUTION } from "../data/plants.js";
+import { msUntilNextUtcMidnight } from "../engine/game.js";
+import {
+  AphyliaLinks,
+  APHYLIA_HOME_URL,
+} from "./AphyliaLink.jsx";
 
 export function FinishScreen({
   won,
@@ -9,6 +15,8 @@ export function FinishScreen({
   guessCount,
   theme,
   layout = "album",
+  puzzleNo = 1,
+  dateLabel = "",
   onPlayAgain,
 }) {
   const T = tokens(theme);
@@ -57,9 +65,9 @@ export function FinishScreen({
             letterSpacing: "0.12em",
           }}
         >
-          DAILY · No. 142 · {won ? "SOLVED" : "REVEALED"}
+          {dateLabel} · No. {puzzleNo} · {won ? "SOLVED" : "REVEALED"}
         </div>
-        <div style={{ width: 120 }} />
+        <AphyliaLinks theme={theme} align="row" />
       </header>
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 40px 80px" }}>
@@ -284,10 +292,14 @@ export function FinishScreen({
 
             <div style={{ height: 1, background: T.border, margin: "28px 0 24px" }} />
 
-            <div style={{ display: "flex", gap: 10 }}>
-              <button
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <a
+                href={APHYLIA_HOME_URL}
+                target="_blank"
+                rel="noopener noreferrer"
                 style={{
                   flex: 2,
+                  minWidth: 220,
                   padding: "16px 22px",
                   background: T.accent,
                   color: "#0A0A0A",
@@ -297,14 +309,17 @@ export function FinishScreen({
                   fontSize: 11,
                   letterSpacing: "0.16em",
                   fontWeight: 700,
+                  textAlign: "center",
+                  textDecoration: "none",
                 }}
               >
-                SHARE →
-              </button>
+                CONTINUE ON APHYLIA →
+              </a>
               <button
                 onClick={onPlayAgain}
                 style={{
                   flex: 1,
+                  minWidth: 140,
                   padding: "16px 22px",
                   background: "transparent",
                   color: T.text,
@@ -327,14 +342,16 @@ export function FinishScreen({
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
+                gap: 16,
+                flexWrap: "wrap",
                 fontFamily: "var(--mono)",
                 fontSize: 10,
                 color: T.muted,
                 letterSpacing: "0.12em",
               }}
             >
-              <span>NEXT PLANT IN</span>
-              <span style={{ color: T.text }}>14h 23m 04s</span>
+              <NextPlantCountdown theme={theme} />
+              <AphyliaLinks theme={theme} align="row" />
             </div>
           </div>
         </div>
@@ -360,5 +377,27 @@ function Section({ label, children, theme }) {
       </div>
       {children}
     </div>
+  );
+}
+
+function NextPlantCountdown({ theme }) {
+  const T = tokens(theme);
+  const [ms, setMs] = useState(() => msUntilNextUtcMidnight(new Date()));
+  useEffect(() => {
+    const id = setInterval(() => setMs(msUntilNextUtcMidnight(new Date())), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  const fmt = (n) => String(n).padStart(2, "0");
+  return (
+    <span>
+      NEXT PLANT IN{" "}
+      <span style={{ color: T.text }}>
+        {fmt(h)}h {fmt(m)}m {fmt(s)}s
+      </span>
+    </span>
   );
 }

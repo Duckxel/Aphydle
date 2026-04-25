@@ -10,10 +10,19 @@ import { COMPARE_COLUMNS } from "../data/plants.js";
 import { StatsScreen } from "./screens/StatsScreen.jsx";
 import { ArchiveScreen } from "./screens/ArchiveScreen.jsx";
 import { HowToScreen } from "./screens/HowToScreen.jsx";
+import { AphyliaPill } from "./AphyliaLink.jsx";
 
 const LEVEL_LADDER = [7, 6, 5, 4, 4, 3, 2, 1, 0, 0, 0];
 
-export function GameScreen({ theme, state, dispatch, answer, onChangeTheme }) {
+export function GameScreen({
+  theme,
+  state,
+  dispatch,
+  answer,
+  puzzleNo,
+  dateLabel,
+  onChangeTheme,
+}) {
   const T = tokens(theme);
   const [overlay, setOverlay] = useState(null);
 
@@ -62,9 +71,10 @@ export function GameScreen({ theme, state, dispatch, answer, onChangeTheme }) {
             letterSpacing: "0.12em",
           }}
         >
-          DAILY · No. 142
+          {dateLabel} · No. {puzzleNo}
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <AphyliaPill theme={theme} />
           <ThemeToggle theme={theme} onChange={onChangeTheme} />
           <NavBtn theme={theme} label="?" onClick={() => setOverlay("how")} title="How to play" />
           <NavBtn theme={theme} label="◫" onClick={() => setOverlay("archive")} title="Archive" />
