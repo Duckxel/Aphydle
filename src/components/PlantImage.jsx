@@ -1,15 +1,13 @@
-// Aphydle — Plant image with mosaic blur. Animates between levels.
+import { useEffect, useRef, useState } from "react";
+import { tileCountForLevel } from "../engine/game.js";
 
-const { useEffect, useRef, useState } = React;
-
-function PlantImage({ src, level, theme, size = 560, framed = true }) {
+export function PlantImage({ src, level, theme, size = 560, framed = true }) {
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
   const rafRef = useRef(null);
   const currentLevelRef = useRef(level);
   const [loaded, setLoaded] = useState(false);
 
-  // Load the image once
   useEffect(() => {
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -24,7 +22,7 @@ function PlantImage({ src, level, theme, size = 560, framed = true }) {
       img.onload = null;
       img.onerror = null;
     };
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
 
   function draw(lvl) {
@@ -34,14 +32,15 @@ function PlantImage({ src, level, theme, size = 560, framed = true }) {
     const ctx = canvas.getContext("2d");
     const w = canvas.width;
     const h = canvas.height;
-    // tileCount = number of mosaic tiles across the image. Canvas-size-independent.
-    const tileCount = window.APHYDLE_ENGINE.tileCountForLevel(lvl);
+    const tileCount = tileCountForLevel(lvl);
 
     ctx.imageSmoothingEnabled = false;
-    // Cover-fit the source into the canvas
     const srcAR = img.width / img.height;
     const dstAR = w / h;
-    let sx = 0, sy = 0, sw = img.width, sh = img.height;
+    let sx = 0,
+      sy = 0,
+      sw = img.width,
+      sh = img.height;
     if (srcAR > dstAR) {
       sw = img.height * dstAR;
       sx = (img.width - sw) / 2;
@@ -62,7 +61,6 @@ function PlantImage({ src, level, theme, size = 560, framed = true }) {
     }
   }
 
-  // Animate level changes
   useEffect(() => {
     if (!loaded) return;
     const startLvl = currentLevelRef.current;
@@ -72,7 +70,6 @@ function PlantImage({ src, level, theme, size = 560, framed = true }) {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     const tick = (now) => {
       const t = Math.min(1, (now - t0) / duration);
-      // ease-out cubic
       const eased = 1 - Math.pow(1 - t, 3);
       const cur = startLvl + (endLvl - startLvl) * eased;
       currentLevelRef.current = cur;
@@ -85,7 +82,7 @@ function PlantImage({ src, level, theme, size = 560, framed = true }) {
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => rafRef.current && cancelAnimationFrame(rafRef.current);
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [level, loaded]);
 
   return (
@@ -97,39 +94,62 @@ function PlantImage({ src, level, theme, size = 560, framed = true }) {
         background: theme === "light" ? "#E8E2D0" : "#0F0F0F",
         overflow: "hidden",
         borderRadius: framed ? 2 : 0,
+        maxWidth: "100%",
       }}
     >
       <canvas
         ref={canvasRef}
         width={size}
         height={size}
-        style={{ width: "100%", height: "100%", display: "block", imageRendering: "pixelated" }}
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "block",
+          imageRendering: "pixelated",
+        }}
       />
-      {/* subtle vignette */}
-      <div style={{
-        position: "absolute", inset: 0, pointerEvents: "none",
-        boxShadow: theme === "light"
-          ? "inset 0 0 80px rgba(26,24,20,0.12)"
-          : "inset 0 0 100px rgba(0,0,0,0.55)",
-      }} />
-      {/* chlorophyll glow corner */}
-      <div style={{
-        position: "absolute", top: 0, right: 0, width: "55%", height: "55%",
-        background: theme === "light"
-          ? "radial-gradient(circle at top right, rgba(0,127,63,0.06), transparent 60%)"
-          : "radial-gradient(circle at top right, rgba(0,210,106,0.07), transparent 60%)",
-        pointerEvents: "none",
-      }} />
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none",
+          boxShadow:
+            theme === "light"
+              ? "inset 0 0 80px rgba(26,24,20,0.12)"
+              : "inset 0 0 100px rgba(0,0,0,0.55)",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          right: 0,
+          width: "55%",
+          height: "55%",
+          background:
+            theme === "light"
+              ? "radial-gradient(circle at top right, rgba(0,127,63,0.06), transparent 60%)"
+              : "radial-gradient(circle at top right, rgba(0,210,106,0.07), transparent 60%)",
+          pointerEvents: "none",
+        }}
+      />
       {!loaded && (
-        <div style={{
-          position: "absolute", inset: 0, display: "flex",
-          alignItems: "center", justifyContent: "center",
-          color: theme === "light" ? "#6B6760" : "#8A8A85",
-          fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.1em",
-        }}>LOADING…</div>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: theme === "light" ? "#6B6760" : "#8A8A85",
+            fontFamily: "var(--mono)",
+            fontSize: 11,
+            letterSpacing: "0.1em",
+          }}
+        >
+          LOADING…
+        </div>
       )}
     </div>
   );
 }
-
-window.PlantImage = PlantImage;
