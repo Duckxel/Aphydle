@@ -107,103 +107,134 @@ export function ArchiveScreen({ theme, onClose, currentPuzzleNo }) {
             gap: 16,
           }}
         >
-          {entries.map((p) => (
-            <div
-              key={p.puzzleNo}
-              style={{ display: "flex", flexDirection: "column", gap: 8 }}
-            >
+          {entries.map((p) => {
+            // The archive must never spoil unplayed puzzles. We only reveal
+            // the photo and the plant name once the player has finished that
+            // puzzle (won or lost). Today counts as revealed only if it's
+            // already in their history — otherwise it's locked like the rest.
+            const revealed = Boolean(p.played);
+            return (
               <div
-                style={{
-                  aspectRatio: "1 / 1",
-                  background: T.elevated,
-                  backgroundImage: p.imageUrl ? `url(${p.imageUrl})` : "none",
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  position: "relative",
-                }}
+                key={p.puzzleNo}
+                style={{ display: "flex", flexDirection: "column", gap: 8 }}
               >
                 <div
                   style={{
-                    position: "absolute",
-                    top: 8,
-                    left: 8,
-                    fontFamily: "var(--mono)",
-                    fontSize: 10,
-                    color: "#fff",
-                    background: "rgba(0,0,0,0.6)",
-                    padding: "3px 6px",
-                    letterSpacing: "0.08em",
+                    aspectRatio: "1 / 1",
+                    background: T.elevated,
+                    backgroundImage:
+                      revealed && p.imageUrl ? `url(${p.imageUrl})` : "none",
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    position: "relative",
                   }}
                 >
-                  #{p.puzzleNo}
-                </div>
-                {p.isToday ? (
+                  {!revealed && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        inset: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: T.muted,
+                        fontFamily: "var(--serif)",
+                        fontSize: 48,
+                        fontWeight: 300,
+                        opacity: 0.5,
+                      }}
+                    >
+                      ?
+                    </div>
+                  )}
                   <div
                     style={{
                       position: "absolute",
-                      bottom: 8,
-                      right: 8,
-                      fontFamily: "var(--mono)",
-                      fontSize: 9,
-                      color: "#0A0A0A",
-                      background: T.accent,
-                      padding: "3px 7px",
-                      letterSpacing: "0.1em",
-                      fontWeight: 700,
-                    }}
-                  >
-                    TODAY
-                  </div>
-                ) : p.played ? (
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: 8,
-                      right: 8,
+                      top: 8,
+                      left: 8,
                       fontFamily: "var(--mono)",
                       fontSize: 10,
                       color: "#fff",
-                      background:
-                        p.played.outcome === "won"
-                          ? "rgba(0,210,106,0.85)"
-                          : "rgba(140,111,77,0.9)",
-                      padding: "3px 7px",
-                      letterSpacing: "0.06em",
-                      fontWeight: 600,
-                    }}
-                  >
-                    {p.played.outcome === "won"
-                      ? `✓ ${p.played.guessCount}`
-                      : "✗ 10"}
-                  </div>
-                ) : null}
-              </div>
-              <div>
-                {p.date && (
-                  <div
-                    style={{
-                      fontFamily: "var(--mono)",
-                      fontSize: 9,
-                      color: T.muted,
+                      background: "rgba(0,0,0,0.6)",
+                      padding: "3px 6px",
                       letterSpacing: "0.08em",
                     }}
                   >
-                    {p.date}
+                    #{p.puzzleNo}
                   </div>
-                )}
-                <div
-                  style={{
-                    fontFamily: "var(--serif)",
-                    fontSize: 16,
-                    color: T.text,
-                    marginTop: 2,
-                  }}
-                >
-                  {p.name || "Unknown plant"}
+                  {p.isToday && !revealed ? (
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: 8,
+                        right: 8,
+                        fontFamily: "var(--mono)",
+                        fontSize: 9,
+                        color: "#0A0A0A",
+                        background: T.accent,
+                        padding: "3px 7px",
+                        letterSpacing: "0.1em",
+                        fontWeight: 700,
+                      }}
+                    >
+                      TODAY
+                    </div>
+                  ) : revealed ? (
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: 8,
+                        right: 8,
+                        fontFamily: "var(--mono)",
+                        fontSize: 10,
+                        color: "#fff",
+                        background:
+                          p.played.outcome === "won"
+                            ? "rgba(0,210,106,0.85)"
+                            : "rgba(140,111,77,0.9)",
+                        padding: "3px 7px",
+                        letterSpacing: "0.06em",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {p.played.outcome === "won"
+                        ? `✓ ${p.played.guessCount}`
+                        : "✗ 10"}
+                    </div>
+                  ) : null}
+                </div>
+                <div>
+                  {p.date && (
+                    <div
+                      style={{
+                        fontFamily: "var(--mono)",
+                        fontSize: 9,
+                        color: T.muted,
+                        letterSpacing: "0.08em",
+                      }}
+                    >
+                      {p.date}
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      fontFamily: "var(--serif)",
+                      fontSize: 16,
+                      color: revealed ? T.text : T.muted,
+                      fontStyle: revealed ? "normal" : "italic",
+                      marginTop: 2,
+                    }}
+                  >
+                    {revealed
+                      ? p.name || "Unknown plant"
+                      : p.isToday
+                        ? "Play to reveal"
+                        : "Hidden — never played"}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </Sheet>

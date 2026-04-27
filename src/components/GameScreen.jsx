@@ -10,7 +10,8 @@ import { COMPARE_COLUMNS } from "../data/plants.js";
 import { StatsScreen } from "./screens/StatsScreen.jsx";
 import { ArchiveScreen } from "./screens/ArchiveScreen.jsx";
 import { HowToScreen } from "./screens/HowToScreen.jsx";
-import { AphyliaPill, AphyliaBackLink } from "./AphyliaLink.jsx";
+import { AphyliaPill, AphyliaBackLink, APHYLIA_HOST_URL } from "./AphyliaLink.jsx";
+import { NavBtn, ThemeToggle } from "./ui/HeaderControls.jsx";
 
 const LEVEL_LADDER = [7, 6, 5, 4, 4, 3, 2, 1, 0, 0, 0];
 
@@ -74,8 +75,7 @@ export function GameScreen({
           {dateLabel} · No. {puzzleNo}
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <AphyliaBackLink theme={theme} />
-          <AphyliaPill theme={theme} />
+          {APHYLIA_HOST_URL ? <AphyliaBackLink theme={theme} /> : <AphyliaPill theme={theme} />}
           <ThemeToggle theme={theme} onChange={onChangeTheme} />
           <NavBtn theme={theme} label="?" onClick={() => setOverlay("how")} title="How to play" />
           <NavBtn theme={theme} label="◫" onClick={() => setOverlay("archive")} title="Archive" />
@@ -291,59 +291,3 @@ function EmptyComparison({ theme }) {
   );
 }
 
-function NavBtn({ theme, label, onClick, title }) {
-  const T = tokens(theme);
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      style={{
-        width: 32,
-        height: 32,
-        background: "transparent",
-        border: `1px solid ${T.border}`,
-        color: T.muted,
-        fontFamily: "var(--mono)",
-        fontSize: 13,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        transition: "all 0.15s",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-function ThemeToggle({ theme, onChange }) {
-  const T = tokens(theme);
-  return (
-    <div
-      style={{
-        display: "flex",
-        border: `1px solid ${T.border}`,
-        fontFamily: "var(--mono)",
-        fontSize: 10,
-        letterSpacing: "0.12em",
-      }}
-    >
-      {["dark", "light"].map((m) => (
-        <button
-          key={m}
-          onClick={() => onChange(m)}
-          style={{
-            padding: "8px 12px",
-            border: "none",
-            cursor: "pointer",
-            background: theme === m ? T.text : "transparent",
-            color: theme === m ? T.bg : T.muted,
-          }}
-        >
-          {m.toUpperCase()}
-        </button>
-      ))}
-    </div>
-  );
-}
