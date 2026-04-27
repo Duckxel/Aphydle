@@ -102,7 +102,35 @@ export function GuessInput({ theme, onSubmit, disabled, attemptsLeft }) {
                 justifyContent: "space-between",
               }}
             >
-              <span style={{ fontFamily: "var(--sans)", fontSize: 14, color: T.text }}>{p.name}</span>
+              <span
+                style={{
+                  fontFamily: "var(--sans)",
+                  fontSize: 14,
+                  color: T.text,
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: 8,
+                  minWidth: 0,
+                }}
+              >
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {p.name}
+                </span>
+                {p.variety && (
+                  <span
+                    style={{
+                      fontStyle: "italic",
+                      color: T.muted,
+                      fontSize: 12,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {p.variety}
+                  </span>
+                )}
+              </span>
               <span
                 style={{
                   fontFamily: "var(--mono)",

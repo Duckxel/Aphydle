@@ -162,24 +162,28 @@ export function FinishScreen({
                 marginTop: 8,
               }}
             >
+              {plant.variety ? `${plant.variety} · ` : ""}
               {plant.scientificName} · {plant.family}
             </div>
 
-            <div style={{ height: 1, background: T.border, margin: "28px 0" }} />
-
-            <p
-              style={{
-                fontFamily: "var(--serif)",
-                fontStyle: "italic",
-                fontSize: 22,
-                lineHeight: 1.45,
-                margin: 0,
-                color: T.text,
-                maxWidth: 560,
-              }}
-            >
-              "{plant.fact}"
-            </p>
+            {plant.fact ? (
+              <>
+                <div style={{ height: 1, background: T.border, margin: "28px 0" }} />
+                <p
+                  style={{
+                    fontFamily: "var(--serif)",
+                    fontStyle: "italic",
+                    fontSize: 22,
+                    lineHeight: 1.45,
+                    margin: 0,
+                    color: T.text,
+                    maxWidth: 560,
+                  }}
+                >
+                  &ldquo;{plant.fact}&rdquo;
+                </p>
+              </>
+            ) : null}
 
             <div style={{ height: 1, background: T.border, margin: "28px 0" }} />
 

@@ -116,6 +116,7 @@ function rowToPlant(r) {
   return {
     id: r.id,
     commonName: tr?.name || r.name || "",
+    variety: tr?.variety || "",
     scientificName: r.name || tr?.name || "",
     family: r.family || "",
     habitat: arrPick(r.habitat),
@@ -127,7 +128,7 @@ function rowToPlant(r) {
     toxicity: worstToxicity(r.toxicity_human, r.toxicity_pets),
     dominantColors: [],
     imageUrl: pickImage(r.plant_images),
-    fact: tr?.description || tr?.summary || null,
+    fact: tr?.presentation || tr?.description || tr?.summary || null,
     commonMisguess: null,
   };
 }
@@ -137,6 +138,7 @@ function rowToGuessable(r) {
   return {
     id: r.id,
     name: tr?.name || r.name || "",
+    variety: tr?.variety || "",
     family: r.family || "",
     habitat: arrPick(r.habitat),
     growthForm: arrPick(r.plant_habit),
@@ -159,7 +161,7 @@ const PLANT_SELECT_FULL = `
   toxicity_human,
   toxicity_pets,
   plant_images ( link, use ),
-  plant_translations!inner ( name, origin )
+  plant_translations!inner ( name, variety, origin, presentation )
 `;
 
 // Fallback select for projects where one of the columns above doesn't exist
@@ -353,6 +355,7 @@ export async function loadRecentPuzzles(limit = 12) {
         date: null,
         plantId: p.plantId,
         name: tr?.name || r?.name || null,
+        variety: tr?.variety || "",
         imageUrl: r ? pickImage(r.plant_images) : null,
       };
     });
