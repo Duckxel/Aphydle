@@ -37,14 +37,14 @@ export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
       className="aph-guess-row"
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(8, minmax(0, 1fr))",
+        gridTemplateColumns: "minmax(140px, 1.8fr) repeat(7, minmax(0, 1fr))",
         gap: 4,
         animation: isLatest ? "aphSlideUp 0.4s cubic-bezier(0.16,1,0.3,1)" : "none",
         marginBottom: 4,
       }}
     >
       <Cell theme={theme} isPlantName isMatch={isAnswer} accent={accent}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
           <div
             style={{
               fontFamily: "var(--sans)",
@@ -54,23 +54,28 @@ export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
               textDecoration: isAnswer ? "none" : "line-through",
               textDecorationColor: isAnswer ? "transparent" : `${T.muted}80`,
               lineHeight: 1.2,
+              wordBreak: "break-word",
             }}
           >
             {guess.name}
-            {guess.variety && (
-              <span
-                style={{
-                  fontStyle: "italic",
-                  fontWeight: 400,
-                  color: isAnswer ? accent : T.muted,
-                  marginLeft: 6,
-                  fontSize: 12,
-                }}
-              >
-                {guess.variety}
-              </span>
-            )}
           </div>
+          {guess.variety && (
+            <div
+              style={{
+                fontFamily: "var(--sans)",
+                fontStyle: "italic",
+                fontWeight: 400,
+                fontSize: 12,
+                color: isAnswer ? accent : T.muted,
+                textDecoration: isAnswer ? "none" : "line-through",
+                textDecorationColor: isAnswer ? "transparent" : `${T.muted}80`,
+                lineHeight: 1.2,
+                wordBreak: "break-word",
+              }}
+            >
+              {guess.variety}
+            </div>
+          )}
           {isAnswer && (
             <div
               style={{
@@ -147,7 +152,7 @@ export function GuessRowHeader({ theme }) {
       className="aph-guess-row-header"
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(8, minmax(0, 1fr))",
+        gridTemplateColumns: "minmax(140px, 1.8fr) repeat(7, minmax(0, 1fr))",
         gap: 4,
         marginBottom: 6,
         paddingLeft: 12,
