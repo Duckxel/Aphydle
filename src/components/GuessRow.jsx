@@ -7,23 +7,36 @@ function toItems(v) {
   return [v];
 }
 
+// Trim noisy descriptive tails so a single text[] element doesn't blow up the
+// cell. DB rows often look like "Worldwide (cosmopolitan distribution;
+// native on most continents except Antarctica)" — we want just "Worldwide".
+function shortLabel(s) {
+  if (s == null) return "";
+  return String(s)
+    .split(/[;:—]|\s-\s/)[0]
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function normalize(s) {
-  return String(s).trim().toLowerCase();
+  return shortLabel(s).toLowerCase();
 }
 
 // Compare list-or-scalar attributes any-of: if any guess element matches any
-// answer element, surface only the matches; otherwise just show the first
-// guess element so long lists don't blow up the cell.
+// answer element (after stripping parenthetical/secondary text), surface only
+// the matches; otherwise just show the first guess element so long lists
+// don't blow up the cell.
 function compareValues(guessVal, answerVal) {
   const guessItems = toItems(guessVal);
   const answerItems = toItems(answerVal);
   if (!guessItems.length || !answerItems.length) {
-    return { match: false, items: guessItems.slice(0, 1) };
+    return { match: false, items: guessItems.slice(0, 1).map(shortLabel) };
   }
   const answerSet = new Set(answerItems.map(normalize));
   const matches = guessItems.filter((g) => answerSet.has(normalize(g)));
-  if (matches.length) return { match: true, items: matches };
-  return { match: false, items: guessItems.slice(0, 1) };
+  if (matches.length) return { match: true, items: [shortLabel(matches[0])] };
+  return { match: false, items: [shortLabel(guessItems[0])] };
 }
 
 export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
