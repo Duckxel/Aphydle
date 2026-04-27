@@ -25,6 +25,13 @@ dist-ssr
 # Dependencies
 node_modules
 
+# Bun lockfiles — the Aphylia host's deploy uses Bun, which writes one of
+# these during build inside the embedded checkout. We keep npm's
+# package-lock.json as the authoritative lockfile, so the bun lockfile
+# shouldn't be tracked.
+bun.lockb
+bun.lock
+
 # Environment
 .env
 .env.local

@@ -3,6 +3,57 @@ import { tokens } from "./ui/tokens.js";
 export const APHYLIA_DAILY_URL = "https://daily.aphylia.app";
 export const APHYLIA_HOME_URL = "https://aphylia.app/daily";
 
+// Optional: when Aphydle is embedded inside the Aphylia host, the host
+// sets VITE_APHYLIA_HOST_URL so we can surface a back-link / "powered by"
+// chip. When unset both components render nothing — the standalone
+// deploy already exposes the public Aphylia links via AphyliaPill /
+// AphyliaLinks, so the chips would just be duplicates.
+export const APHYLIA_HOST_URL = import.meta.env.VITE_APHYLIA_HOST_URL || "";
+
+export function AphyliaBackLink({ theme }) {
+  if (!APHYLIA_HOST_URL) return null;
+  const T = tokens(theme);
+  return (
+    <a
+      href={APHYLIA_HOST_URL}
+      rel="noopener"
+      style={{
+        fontFamily: "var(--mono)",
+        fontSize: 10,
+        letterSpacing: "0.12em",
+        color: T.muted,
+        textDecoration: "none",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.color = T.text)}
+      onMouseLeave={(e) => (e.currentTarget.style.color = T.muted)}
+    >
+      ← BACK TO APHYLIA
+    </a>
+  );
+}
+
+export function PoweredByAphylia({ theme }) {
+  if (!APHYLIA_HOST_URL) return null;
+  const T = tokens(theme);
+  return (
+    <a
+      href={APHYLIA_HOST_URL}
+      rel="noopener"
+      style={{
+        fontFamily: "var(--mono)",
+        fontSize: 9,
+        letterSpacing: "0.14em",
+        color: T.subtle || T.muted,
+        textDecoration: "none",
+      }}
+      onMouseEnter={(e) => (e.currentTarget.style.color = T.text)}
+      onMouseLeave={(e) => (e.currentTarget.style.color = T.subtle || T.muted)}
+    >
+      POWERED BY APHYLIA ↗
+    </a>
+  );
+}
+
 // Compact pill for headers.
 export function AphyliaPill({ theme, href = APHYLIA_HOME_URL, label = "APHYLIA ↗" }) {
   const T = tokens(theme);

@@ -7,6 +7,7 @@
 #   ./setup.sh                # full setup: install + env + build
 #   ./setup.sh --serve        # full setup, then start `vite preview` on port 4173
 #   ./setup.sh --skip-install # skip npm install (use existing node_modules)
+#   ./setup.sh --skip-build   # skip the production build (env + install only)
 #   ./setup.sh --help
 
 set -euo pipefail
@@ -16,18 +17,25 @@ cd "$(dirname "$0")"
 # ── flags ────────────────────────────────────────────────────────────────────
 SERVE=0
 SKIP_INSTALL=0
+SKIP_BUILD=0
 for arg in "$@"; do
   case "$arg" in
     --serve)        SERVE=1 ;;
     --skip-install) SKIP_INSTALL=1 ;;
+    --skip-build)   SKIP_BUILD=1 ;;
     -h|--help)
-      sed -n '2,12p' "$0" | sed 's/^# \?//'
+      sed -n '2,11p' "$0" | sed 's/^# \?//'
       exit 0 ;;
     *)
       echo "Unknown flag: $arg" >&2
       exit 2 ;;
   esac
 done
+
+if [ "$SKIP_BUILD" -eq 1 ] && [ "$SERVE" -eq 1 ]; then
+  echo "--skip-build cannot be combined with --serve (nothing to preview)." >&2
+  exit 2
+fi
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 say()  { printf '\n\033[1;32m==>\033[0m %s\n' "$*"; }
@@ -81,6 +89,19 @@ else
 fi
 
 # ── build ────────────────────────────────────────────────────────────────────
+if [ "$SKIP_BUILD" -eq 1 ]; then
+  say "Skipping production build (--skip-build)"
+  cat <<EOF
+
+  Aphydle is configured but not built.
+
+  To build now:           ./setup.sh --skip-install
+  To build and preview:   ./setup.sh --skip-install --serve
+
+EOF
+  exit 0
+fi
+
 say "Building production bundle"
 npm run build
 

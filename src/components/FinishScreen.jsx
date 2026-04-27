@@ -7,6 +7,8 @@ import { msUntilNextUtcMidnight } from "../engine/game.js";
 import {
   AphyliaLinks,
   APHYLIA_HOME_URL,
+  AphyliaBackLink,
+  PoweredByAphylia,
 } from "./AphyliaLink.jsx";
 
 export function FinishScreen({
@@ -351,7 +353,26 @@ export function FinishScreen({
               }}
             >
               <NextPlantCountdown theme={theme} />
-              <AphyliaLinks theme={theme} align="row" />
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 18,
+                  flexWrap: "wrap",
+                }}
+              >
+                <AphyliaBackLink theme={theme} />
+                <AphyliaLinks theme={theme} align="row" />
+              </div>
+            </div>
+            <div
+              style={{
+                marginTop: 14,
+                display: "flex",
+                justifyContent: "flex-end",
+              }}
+            >
+              <PoweredByAphylia theme={theme} />
             </div>
           </div>
         </div>
