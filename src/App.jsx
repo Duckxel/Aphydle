@@ -99,6 +99,7 @@ export default function App() {
         puzzleNo={puzzleNo}
         dateLabel={dateLabel}
         onPlayAgain={() => dispatch({ type: "reset" })}
+        onChangeTheme={setTheme}
       />
     );
   }

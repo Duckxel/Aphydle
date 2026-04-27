@@ -5,11 +5,17 @@ import { MosaicStrip } from "./ui/MosaicStrip.jsx";
 import { msUntilNextUtcMidnight } from "../engine/game.js";
 import { loadDistribution } from "../lib/data.js";
 import {
-  AphyliaLinks,
-  APHYLIA_HOME_URL,
+  AphyliaPill,
   AphyliaBackLink,
+  APHYLIA_HOST_URL,
   PoweredByAphylia,
 } from "./AphyliaLink.jsx";
+import { NavBtn, ThemeToggle } from "./ui/HeaderControls.jsx";
+import { StatsScreen } from "./screens/StatsScreen.jsx";
+import { ArchiveScreen } from "./screens/ArchiveScreen.jsx";
+import { HowToScreen } from "./screens/HowToScreen.jsx";
+
+const APHYLIA_PLANT_URL_BASE = "https://aphylia.app/plants/";
 
 export function FinishScreen({
   won,
@@ -20,9 +26,11 @@ export function FinishScreen({
   puzzleNo = 1,
   dateLabel = "",
   onPlayAgain,
+  onChangeTheme,
 }) {
   const T = tokens(theme);
   const [dist, setDist] = useState(null);
+  const [overlay, setOverlay] = useState(null);
   useEffect(() => {
     let cancelled = false;
     loadDistribution(puzzleNo).then((d) => {
@@ -79,7 +87,13 @@ export function FinishScreen({
         >
           {dateLabel} · No. {puzzleNo} · {won ? "SOLVED" : "REVEALED"}
         </div>
-        <AphyliaLinks theme={theme} align="row" />
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {APHYLIA_HOST_URL ? <AphyliaBackLink theme={theme} /> : <AphyliaPill theme={theme} />}
+          {onChangeTheme && <ThemeToggle theme={theme} onChange={onChangeTheme} />}
+          <NavBtn theme={theme} label="?" onClick={() => setOverlay("how")} title="How to play" />
+          <NavBtn theme={theme} label="◫" onClick={() => setOverlay("archive")} title="Archive" />
+          <NavBtn theme={theme} label="▤" onClick={() => setOverlay("stats")} title="Stats" />
+        </div>
       </header>
 
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 40px 80px" }}>
@@ -314,7 +328,7 @@ export function FinishScreen({
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <a
-                href={APHYLIA_HOME_URL}
+                href={`${APHYLIA_PLANT_URL_BASE}${plant.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
@@ -333,7 +347,7 @@ export function FinishScreen({
                   textDecoration: "none",
                 }}
               >
-                CONTINUE ON APHYLIA →
+                VIEW ON APHYLIA →
               </a>
               <button
                 onClick={onPlayAgain}
@@ -359,11 +373,6 @@ export function FinishScreen({
                 marginTop: 28,
                 paddingTop: 20,
                 borderTop: `1px solid ${T.border}`,
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 16,
-                flexWrap: "wrap",
                 fontFamily: "var(--mono)",
                 fontSize: 10,
                 color: T.muted,
@@ -371,17 +380,6 @@ export function FinishScreen({
               }}
             >
               <NextPlantCountdown theme={theme} />
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 18,
-                  flexWrap: "wrap",
-                }}
-              >
-                <AphyliaBackLink theme={theme} />
-                <AphyliaLinks theme={theme} align="row" />
-              </div>
             </div>
             <div
               style={{
@@ -395,6 +393,16 @@ export function FinishScreen({
           </div>
         </div>
       </div>
+
+      {overlay === "stats" && <StatsScreen theme={theme} onClose={() => setOverlay(null)} />}
+      {overlay === "archive" && (
+        <ArchiveScreen
+          theme={theme}
+          onClose={() => setOverlay(null)}
+          currentPuzzleNo={puzzleNo}
+        />
+      )}
+      {overlay === "how" && <HowToScreen theme={theme} onClose={() => setOverlay(null)} />}
     </div>
   );
 }
