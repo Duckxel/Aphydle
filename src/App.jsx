@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { GameScreen } from "./components/GameScreen.jsx";
 import { FinishScreen } from "./components/FinishScreen.jsx";
 import {
@@ -10,6 +10,7 @@ import {
 import { loadDailyPuzzle, submitResult } from "./lib/data.js";
 import { preloadImage } from "./lib/imageCache.js";
 import { loadGameState, saveGameState, recordResult } from "./lib/storage.js";
+import { trackVisit, trackAttempt } from "./lib/analytics.js";
 
 export default function App() {
   // Theme — persisted independently of game state.
@@ -77,14 +78,40 @@ export default function App() {
   }, [puzzleNo, state]);
 
   // Record the result once when a puzzle ends. The local stats writer is
-  // idempotent per puzzleNo. The Supabase submission is best-effort —
-  // it's a no-op when the player isn't authenticated.
+  // idempotent per puzzleNo. The Supabase submission is best-effort.
   useEffect(() => {
     if (puzzleNo == null || !answer) return;
     if (!state.outcome) return;
     recordResult(puzzleNo, state.outcome, state.guesses.length, answer);
     submitResult(puzzleNo, state.outcome, state.guesses.length);
   }, [puzzleNo, answer, state.outcome, state.guesses.length]);
+
+  // Anonymized analytics: log a page visit once per puzzle, and stream a
+  // row per individual guess so admins can inspect play patterns.
+  useEffect(() => {
+    if (puzzleNo != null) trackVisit(puzzleNo);
+  }, [puzzleNo]);
+
+  const lastTrackedAttemptRef = useRef({ puzzleNo: null, count: 0 });
+  useEffect(() => {
+    if (puzzleNo == null || !answer) return;
+    const tracker = lastTrackedAttemptRef.current;
+    if (tracker.puzzleNo !== puzzleNo) {
+      tracker.puzzleNo = puzzleNo;
+      tracker.count = 0;
+    }
+    while (tracker.count < state.guesses.length) {
+      const idx = tracker.count;
+      const g = state.guesses[idx];
+      trackAttempt({
+        puzzleNo,
+        attemptNo: idx + 1,
+        plantId: g?.id,
+        isCorrect: g?.id === answer.id,
+      });
+      tracker.count = idx + 1;
+    }
+  }, [puzzleNo, answer, state.guesses.length]);
 
   if (!answer || puzzleNo == null) return null;
 

@@ -437,12 +437,23 @@ export async function loadDistribution(puzzleNo) {
 export async function submitResult(puzzleNo, outcome, guessCount) {
   if (!isSupabaseConfigured) return false;
   try {
-    const userResp = await supabase.auth.getUser();
-    const user = userResp?.data?.user;
-    if (!user) return false;
+    let playerId = null;
+    try {
+      const userResp = await supabase.auth.getUser();
+      playerId = userResp?.data?.user?.id || null;
+    } catch {
+      // ignore — will fall back to anon id below
+    }
+    if (!playerId) {
+      // No auth session: tag the result with the per-day anon id used by
+      // the analytics tables so admins can join attempts → final score.
+      const { getDailyAnonId } = await import("./analytics.js");
+      playerId = getDailyAnonId();
+    }
+    if (!playerId) return false;
     const { error } = await aph().from("puzzle_results").insert({
       puzzle_no: puzzleNo,
-      player_id: user.id,
+      player_id: playerId,
       outcome,
       guess_count: guessCount,
     });
