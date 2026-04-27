@@ -22,6 +22,8 @@ export function GameScreen({
   answer,
   puzzleNo,
   dateLabel,
+  onPlayPuzzle,
+  isArchiveSession = false,
   onChangeTheme,
 }) {
   const T = tokens(theme);
@@ -41,6 +43,40 @@ export function GameScreen({
         fontFamily: "var(--sans)",
       }}
     >
+      {isArchiveSession && onPlayPuzzle && (
+        <div
+          style={{
+            background: T.elevated,
+            borderBottom: `1px solid ${T.border}`,
+            padding: "8px 24px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 16,
+            fontFamily: "var(--mono)",
+            fontSize: 11,
+            letterSpacing: "0.12em",
+            color: T.muted,
+          }}
+        >
+          <span>ARCHIVE REPLAY · PUZZLE #{puzzleNo}</span>
+          <button
+            onClick={() => onPlayPuzzle(null)}
+            style={{
+              background: "transparent",
+              color: T.text,
+              border: `1px solid ${T.border}`,
+              padding: "4px 10px",
+              fontFamily: "var(--mono)",
+              fontSize: 10,
+              letterSpacing: "0.14em",
+              cursor: "pointer",
+            }}
+          >
+            ← TODAY
+          </button>
+        </div>
+      )}
       <header
         className="aph-header"
         style={{
@@ -60,7 +96,7 @@ export function GameScreen({
               fontFamily: "var(--serif)",
               fontSize: 22,
               letterSpacing: "0.04em",
-              fontWeight: 500,
+              fontWeight: 700,
             }}
           >
             Aphydle
@@ -140,12 +176,20 @@ export function GameScreen({
             <div style={{ marginTop: 14 }}>
               <MosaicStrip theme={theme} height={6} opacity={0.4} />
             </div>
-            <div style={{ marginTop: 18 }}>
+            <div
+              className="aph-guess-input-wrap"
+              style={{
+                marginTop: 18,
+                "--aph-guess-bg": T.bg,
+                "--aph-guess-border": T.border,
+              }}
+            >
               <GuessInput
                 theme={theme}
                 onSubmit={(p) => dispatch({ type: "guess", plant: p, answerId: answer.id })}
                 disabled={false}
                 attemptsLeft={attemptsLeft}
+                guessedIds={state.guesses.map((g) => g.id)}
               />
             </div>
           </div>
@@ -224,6 +268,10 @@ export function GameScreen({
           theme={theme}
           onClose={() => setOverlay(null)}
           currentPuzzleNo={puzzleNo}
+          onPlayPuzzle={(no) => {
+            setOverlay(null);
+            if (onPlayPuzzle) onPlayPuzzle(no);
+          }}
         />
       )}
       {overlay === "how" && <HowToScreen theme={theme} onClose={() => setOverlay(null)} />}

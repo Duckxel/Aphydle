@@ -66,18 +66,23 @@ export const HINT_SCHEDULE = [
   { atAttempt: 9, key: "genus", label: "Genus" },
 ];
 
+function asText(v) {
+  if (Array.isArray(v)) return v.filter(Boolean).join(", ");
+  return v ?? "";
+}
+
 export function buildHint(key, plant) {
   switch (key) {
     case "habitat":
-      return plant.habitat;
+      return asText(plant.habitat);
     case "growth":
-      return plant.growthForm;
+      return asText(plant.growthForm);
     case "colors":
       return plant.dominantColors.join(", ");
     case "care":
-      return `${"●".repeat(plant.careLevel)}${"○".repeat(5 - plant.careLevel)}  ·  ${plant.lightNeeds}`;
+      return `${"●".repeat(plant.careLevel)}${"○".repeat(5 - plant.careLevel)}  ·  ${asText(plant.lightNeeds)}`;
     case "region":
-      return plant.nativeRegion;
+      return asText(plant.nativeRegion);
     case "family":
       return plant.family;
     case "toxicity":
@@ -112,6 +117,7 @@ export function gameReducer(state, action) {
   switch (action.type) {
     case "guess": {
       if (state.outcome) return state;
+      if (state.guesses.some((g) => g.id === action.plant.id)) return state;
       const isCorrect = action.plant.id === action.answerId;
       const guesses = [...state.guesses, action.plant];
       let outcome = null;

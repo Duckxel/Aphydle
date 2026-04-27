@@ -14,32 +14,70 @@ bookkeeping that PlantSwipe doesn't own.
 
 ## Applying
 
-A single idempotent sync file does the whole job. Re-running it is safe — on a
-fresh database it creates everything; on a database that already has an older
-version of the Aphydle schema it drops the retired tables and brings the rest
-up to current.
+The migration files are idempotent. Re-running them is safe — on a fresh
+database they create everything; on a database that already has an older
+version of the Aphydle schema they drop the retired tables and bring the
+rest up to current.
 
 Supabase CLI (recommended — tracks history):
 
 ```bash
 # from this repo's root
 supabase link --project-ref <your-project-ref>
-supabase db push                # applies supabase/migrations/0001_aphydle_sync.sql
+supabase db push                # applies every supabase/migrations/*.sql
 ```
 
 One-off / manual: open the Supabase SQL editor and paste the contents of
-`supabase/migrations/0001_aphydle_sync.sql`, then run it.
+each file in `supabase/migrations/` in order, then run them.
 
 ## What the sync creates
 
 | Object                          | Purpose                                                                   |
 | ------------------------------- | ------------------------------------------------------------------------- |
 | `aphydle` schema                | Namespace for everything below; isolates Aphydle from the host project.   |
-| `aphydle.puzzle_results`        | Per-(puzzle, player) outcome rows with RLS so users only insert their own.|
+| `aphydle.puzzle_results`        | Per-(puzzle, player) outcome rows with RLS. Authenticated users insert under their `auth.uid()`; unauthenticated players insert under their per-day anon id. |
 | `aphydle.daily_distribution`    | View aggregating `puzzle_results` into the histogram on the finish screen.|
 | `aphydle.daily_log`             | Append-only record of which `plant_id` was served on which puzzle day.    |
 | `aphydle.ensure_daily_log()`    | SECURITY DEFINER fn that picks the rotation plant for today and inserts it; bypasses RLS. |
 | `cron` job `aphydle_ensure_daily_log` | pg_cron schedule (`5 0 * * *` UTC) that calls `ensure_daily_log()` so today's row exists before any client visits. |
+| `aphydle.page_visits`           | One row per app load. Anon insert / admin-only select. Useful for daily active counts. |
+| `aphydle.attempts`              | One row per individual guess (puzzle + attempt no + plant id + correctness). Anon insert / admin-only select. Joins to `puzzle_results` via `(puzzle_no, anon_id ↔ player_id)`. |
+
+### Anonymized analytics
+
+The `page_visits` and `attempts` tables are tagged with a fresh random uuid
+that the client mints every UTC day and stores locally — no IP, no user
+agent, no cross-day identifier. RLS lets `anon` insert but never select,
+so individual rows are only visible to project admins (service role / SQL
+editor / dashboard). Useful queries:
+
+```sql
+-- daily unique players + total guesses
+select puzzle_no,
+       count(distinct anon_id) as players,
+       count(*)                as guesses
+from aphydle.attempts
+group by puzzle_no
+order by puzzle_no desc;
+
+-- most frequent wrong guesses by puzzle
+select puzzle_no, guess_plant_id, count(*) as picks
+from aphydle.attempts
+where is_correct = false and guess_plant_id is not null
+group by puzzle_no, guess_plant_id
+order by puzzle_no desc, picks desc;
+
+-- visits vs. completions per puzzle
+select v.puzzle_no,
+       count(distinct v.anon_id)   as visitors,
+       count(distinct r.player_id) as finishers
+from aphydle.page_visits v
+left join aphydle.puzzle_results r
+       on r.puzzle_no = v.puzzle_no
+      and r.player_id = v.anon_id
+group by v.puzzle_no
+order by v.puzzle_no desc;
+```
 
 > **pg_cron note:** on Supabase Cloud the `pg_cron` extension must be
 > enabled once via the dashboard (Database → Extensions). This migration's

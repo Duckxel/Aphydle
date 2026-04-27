@@ -25,7 +25,8 @@ export function FinishScreen({
   layout = "album",
   puzzleNo = 1,
   dateLabel = "",
-  onPlayAgain,
+  onPlayPuzzle,
+  isArchiveSession = false,
   onChangeTheme,
 }) {
   const T = tokens(theme);
@@ -73,7 +74,7 @@ export function FinishScreen({
               fontFamily: "var(--serif)",
               fontSize: 22,
               letterSpacing: "0.04em",
-              fontWeight: 500,
+              fontWeight: 700,
             }}
           >
             Aphydle
@@ -359,7 +360,7 @@ export function FinishScreen({
                 VIEW ON APHYLIA →
               </a>
               <button
-                onClick={onPlayAgain}
+                onClick={() => setOverlay("archive")}
                 style={{
                   flex: 1,
                   minWidth: 140,
@@ -372,9 +373,29 @@ export function FinishScreen({
                   fontSize: 11,
                   letterSpacing: "0.16em",
                 }}
+                title="Replay any puzzle you haven't played yet"
               >
-                PLAY AGAIN ↻
+                PLAY ANOTHER ↻
               </button>
+              {isArchiveSession && onPlayPuzzle && (
+                <button
+                  onClick={() => onPlayPuzzle(null)}
+                  style={{
+                    minWidth: 120,
+                    padding: "16px 18px",
+                    background: "transparent",
+                    color: T.muted,
+                    border: `1px solid ${T.border}`,
+                    cursor: "pointer",
+                    fontFamily: "var(--mono)",
+                    fontSize: 11,
+                    letterSpacing: "0.16em",
+                  }}
+                  title="Return to today's puzzle"
+                >
+                  ← TODAY
+                </button>
+              )}
             </div>
 
             <div
@@ -409,6 +430,10 @@ export function FinishScreen({
           theme={theme}
           onClose={() => setOverlay(null)}
           currentPuzzleNo={puzzleNo}
+          onPlayPuzzle={(no) => {
+            setOverlay(null);
+            if (onPlayPuzzle) onPlayPuzzle(no);
+          }}
         />
       )}
       {overlay === "how" && <HowToScreen theme={theme} onClose={() => setOverlay(null)} />}

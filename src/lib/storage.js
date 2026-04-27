@@ -2,7 +2,10 @@
 // Stored in localStorage, namespaced by puzzle number where appropriate
 // so a new day starts with a clean slate automatically.
 
-const STATE_KEY = "aphydle:state:v1";
+// State is keyed per-puzzle so an Archive replay never clobbers today's
+// in-progress slot. Legacy single-key state is migrated on first read.
+const STATE_KEY_PREFIX = "aphydle:state:v1:";
+const LEGACY_STATE_KEY = "aphydle:state:v1";
 const STATS_KEY = "aphydle:stats:v1";
 const HISTORY_KEY = "aphydle:history:v1";
 const INSTALL_KEY = "aphydle:install:v1";
@@ -14,18 +17,47 @@ function safeWindow() {
   return typeof window !== "undefined" && window.localStorage ? window : null;
 }
 
+function readPuzzleState(w, puzzleNo) {
+  const raw = w.localStorage.getItem(`${STATE_KEY_PREFIX}${puzzleNo}`);
+  if (raw) return JSON.parse(raw);
+  // Legacy single-key fallback: read once and migrate so older sessions
+  // don't appear unfinished.
+  const legacy = w.localStorage.getItem(LEGACY_STATE_KEY);
+  if (!legacy) return null;
+  try {
+    const parsed = JSON.parse(legacy);
+    if (!parsed || parsed.puzzleNo !== puzzleNo) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 export function loadGameState(puzzleNo) {
   const w = safeWindow();
   if (!w) return null;
   try {
-    const raw = w.localStorage.getItem(STATE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || parsed.puzzleNo !== puzzleNo) return null;
-    return {
-      guesses: Array.isArray(parsed.guesses) ? parsed.guesses : [],
-      outcome: parsed.outcome === "won" || parsed.outcome === "lost" ? parsed.outcome : null,
-    };
+    const parsed = readPuzzleState(w, puzzleNo);
+    if (parsed) {
+      return {
+        guesses: Array.isArray(parsed.guesses) ? parsed.guesses : [],
+        outcome:
+          parsed.outcome === "won" || parsed.outcome === "lost" ? parsed.outcome : null,
+      };
+    }
+    // Fallback: synthesize a finished state from history so a puzzle
+    // already played on this device stays locked even after the per-
+    // puzzle state slot has been cleared.
+    const history = loadHistory();
+    const past = history.find((h) => h.puzzleNo === puzzleNo);
+    if (past && (past.outcome === "won" || past.outcome === "lost")) {
+      const count = Math.max(0, Math.min(past.guessCount || 0, 10));
+      return {
+        guesses: Array.from({ length: count }, () => ({})),
+        outcome: past.outcome,
+      };
+    }
+    return null;
   } catch {
     return null;
   }
@@ -33,10 +65,10 @@ export function loadGameState(puzzleNo) {
 
 export function saveGameState(puzzleNo, state) {
   const w = safeWindow();
-  if (!w) return;
+  if (!w || puzzleNo == null) return;
   try {
     w.localStorage.setItem(
-      STATE_KEY,
+      `${STATE_KEY_PREFIX}${puzzleNo}`,
       JSON.stringify({
         puzzleNo,
         guesses: state.guesses,
@@ -49,14 +81,30 @@ export function saveGameState(puzzleNo, state) {
   }
 }
 
-export function clearGameState() {
+export function clearGameState(puzzleNo) {
   const w = safeWindow();
   if (!w) return;
   try {
-    w.localStorage.removeItem(STATE_KEY);
+    if (puzzleNo == null) {
+      // Wipe every per-puzzle slot + legacy key.
+      const keys = [];
+      for (let i = 0; i < w.localStorage.length; i++) {
+        const k = w.localStorage.key(i);
+        if (k && k.startsWith(STATE_KEY_PREFIX)) keys.push(k);
+      }
+      keys.forEach((k) => w.localStorage.removeItem(k));
+      w.localStorage.removeItem(LEGACY_STATE_KEY);
+    } else {
+      w.localStorage.removeItem(`${STATE_KEY_PREFIX}${puzzleNo}`);
+    }
   } catch {
     // ignore
   }
+}
+
+export function isPuzzlePlayed(puzzleNo) {
+  if (puzzleNo == null) return false;
+  return loadHistory().some((h) => h.puzzleNo === puzzleNo);
 }
 
 // Anchors fallback puzzle numbering. The first time the app runs without

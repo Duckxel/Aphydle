@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { GameScreen } from "./components/GameScreen.jsx";
 import { FinishScreen } from "./components/FinishScreen.jsx";
 import {
@@ -7,9 +7,15 @@ import {
   formatPuzzleDate,
   msUntilNextUtcMidnight,
 } from "./engine/game.js";
-import { loadDailyPuzzle, submitResult } from "./lib/data.js";
+import { loadDailyPuzzle, loadArchivedPuzzle, submitResult } from "./lib/data.js";
 import { preloadImage } from "./lib/imageCache.js";
-import { loadGameState, saveGameState, recordResult } from "./lib/storage.js";
+import {
+  loadGameState,
+  saveGameState,
+  recordResult,
+  isPuzzlePlayed,
+} from "./lib/storage.js";
+import { trackVisit, trackAttempt } from "./lib/analytics.js";
 
 export default function App() {
   // Theme — persisted independently of game state.
@@ -26,19 +32,28 @@ export default function App() {
   const [now, setNow] = useState(() => new Date());
   const dateLabel = useMemo(() => formatPuzzleDate(now), [now]);
 
-  // Today's puzzle is loaded from Supabase (with a local fallback inside
-  // the data layer). Until it resolves we render nothing — the whole app
-  // is gated on having an answer.
+  // When set, replaces today's puzzle with an archived one — the Archive
+  // screen calls onPlayPuzzle() to start a replay session for any puzzle
+  // the player hasn't completed yet.
+  const [archivePuzzleNo, setArchivePuzzleNo] = useState(null);
+
+  // The active puzzle (today's by default, or an archive replay). Until
+  // it resolves we render nothing — the whole app is gated on an answer.
   const [puzzle, setPuzzle] = useState(null);
   useEffect(() => {
     let cancelled = false;
-    loadDailyPuzzle(now).then((p) => {
+    setPuzzle(null);
+    const loader =
+      archivePuzzleNo != null
+        ? loadArchivedPuzzle(archivePuzzleNo)
+        : loadDailyPuzzle(now);
+    loader.then((p) => {
       if (!cancelled) setPuzzle(p);
     });
     return () => {
       cancelled = true;
     };
-  }, [now]);
+  }, [now, archivePuzzleNo]);
 
   const puzzleNo = puzzle?.puzzleNo ?? null;
   const answer = puzzle?.plant ?? null;
@@ -77,8 +92,7 @@ export default function App() {
   }, [puzzleNo, state]);
 
   // Record the result once when a puzzle ends. The local stats writer is
-  // idempotent per puzzleNo. The Supabase submission is best-effort —
-  // it's a no-op when the player isn't authenticated.
+  // idempotent per puzzleNo. The Supabase submission is best-effort.
   useEffect(() => {
     if (puzzleNo == null || !answer) return;
     if (!state.outcome) return;
@@ -86,7 +100,45 @@ export default function App() {
     submitResult(puzzleNo, state.outcome, state.guesses.length);
   }, [puzzleNo, answer, state.outcome, state.guesses.length]);
 
+  // Anonymized analytics: log a page visit once per puzzle, and stream a
+  // row per individual guess so admins can inspect play patterns.
+  useEffect(() => {
+    if (puzzleNo != null) trackVisit(puzzleNo);
+  }, [puzzleNo]);
+
+  const lastTrackedAttemptRef = useRef({ puzzleNo: null, count: 0 });
+  useEffect(() => {
+    if (puzzleNo == null || !answer) return;
+    const tracker = lastTrackedAttemptRef.current;
+    if (tracker.puzzleNo !== puzzleNo) {
+      tracker.puzzleNo = puzzleNo;
+      tracker.count = 0;
+    }
+    while (tracker.count < state.guesses.length) {
+      const idx = tracker.count;
+      const g = state.guesses[idx];
+      trackAttempt({
+        puzzleNo,
+        attemptNo: idx + 1,
+        plantId: g?.id,
+        isCorrect: g?.id === answer.id,
+      });
+      tracker.count = idx + 1;
+    }
+  }, [puzzleNo, answer, state.guesses.length]);
+
   if (!answer || puzzleNo == null) return null;
+
+  // The Archive owns the replay-puzzle picker. A null puzzleNo from the
+  // archive means "back to today".
+  function handlePlayPuzzle(no) {
+    if (no == null) {
+      setArchivePuzzleNo(null);
+      return;
+    }
+    if (isPuzzlePlayed(no)) return; // local lock — never replay a finished puzzle
+    setArchivePuzzleNo(no);
+  }
 
   if (state.outcome) {
     return (
@@ -98,7 +150,8 @@ export default function App() {
         layout="album"
         puzzleNo={puzzleNo}
         dateLabel={dateLabel}
-        onPlayAgain={() => dispatch({ type: "reset" })}
+        onPlayPuzzle={handlePlayPuzzle}
+        isArchiveSession={archivePuzzleNo != null}
         onChangeTheme={setTheme}
       />
     );
@@ -112,6 +165,8 @@ export default function App() {
       answer={answer}
       puzzleNo={puzzleNo}
       dateLabel={dateLabel}
+      onPlayPuzzle={handlePlayPuzzle}
+      isArchiveSession={archivePuzzleNo != null}
       onChangeTheme={setTheme}
     />
   );

@@ -30,7 +30,7 @@ function formatIsoDate(iso) {
   return formatPuzzleDate(new Date(Date.UTC(y, m - 1, d)));
 }
 
-export function ArchiveScreen({ theme, onClose, currentPuzzleNo }) {
+export function ArchiveScreen({ theme, onClose, currentPuzzleNo, onPlayPuzzle }) {
   const T = tokens(theme);
   const [remote, setRemote] = useState(null); // null = unknown, [] = empty
   const [history] = useState(() => loadHistory());
@@ -186,10 +186,35 @@ export function ArchiveScreen({ theme, onClose, currentPuzzleNo }) {
             // puzzle (won or lost). Today counts as revealed only if it's
             // already in their history — otherwise it's locked like the rest.
             const revealed = Boolean(p.played);
+            const playable = Boolean(onPlayPuzzle) && !revealed;
+            const handleClick = () => {
+              if (!onPlayPuzzle) return;
+              if (p.isToday) {
+                // Returning to today is always allowed; if today is already
+                // played the parent ignores the call.
+                onPlayPuzzle(null);
+              } else if (playable) {
+                onPlayPuzzle(p.puzzleNo);
+              }
+            };
             return (
               <div
                 key={p.puzzleNo}
-                style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                onClick={playable || p.isToday ? handleClick : undefined}
+                role={playable || p.isToday ? "button" : undefined}
+                tabIndex={playable || p.isToday ? 0 : undefined}
+                onKeyDown={(e) => {
+                  if ((e.key === "Enter" || e.key === " ") && (playable || p.isToday)) {
+                    e.preventDefault();
+                    handleClick();
+                  }
+                }}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  cursor: playable || p.isToday ? "pointer" : "default",
+                }}
               >
                 <div
                   style={{
@@ -302,7 +327,9 @@ export function ArchiveScreen({ theme, onClose, currentPuzzleNo }) {
                       ? p.name || "Unknown plant"
                       : p.isToday
                         ? "Play to reveal"
-                        : "Hidden — never played"}
+                        : playable
+                          ? "Click to play →"
+                          : "Hidden — never played"}
                   </div>
                 </div>
               </div>

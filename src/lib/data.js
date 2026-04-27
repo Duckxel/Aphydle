@@ -91,11 +91,15 @@ function worstToxicity(human, pets) {
   return tidy(winner) || "Unknown";
 }
 
-// habitat / plant_habit / foliage_persistence / sunlight are text[] enums.
-// The match grid only renders one string per cell, so surface the first.
-function arrPick(v) {
-  if (Array.isArray(v)) return v.length ? tidy(v[0]) : "";
-  return tidy(v);
+// habitat / plant_habit / foliage_persistence / sunlight / origin are text[]
+// enums. Return every entry tidied so the match grid can do per-element
+// comparison (any-of) and only render the items that matter.
+function arrAll(v) {
+  if (Array.isArray(v)) {
+    return v.map(tidy).filter(Boolean);
+  }
+  const s = tidy(v);
+  return s ? [s] : [];
 }
 
 // plant_images is one-to-many. PlantSwipe tags rows with a `use` (e.g. card,
@@ -123,12 +127,12 @@ function rowToPlant(r) {
     variety: tr?.variety || "",
     scientificName: r.name || tr?.name || "",
     family: r.family || "",
-    habitat: arrPick(r.habitat),
-    growthForm: arrPick(r.plant_habit),
-    foliage: arrPick(r.foliage_persistence),
+    habitat: arrAll(r.habitat),
+    growthForm: arrAll(r.plant_habit),
+    foliage: arrAll(r.foliage_persistence),
     careLevel: 0,
-    lightNeeds: arrPick(r.sunlight),
-    nativeRegion: arrPick(tr?.origin),
+    lightNeeds: arrAll(r.sunlight),
+    nativeRegion: arrAll(tr?.origin),
     toxicity: worstToxicity(r.toxicity_human, r.toxicity_pets),
     dominantColors: [],
     imageUrl: pickImage(r.plant_images),
@@ -144,11 +148,11 @@ function rowToGuessable(r) {
     name: tr?.name || r.name || "",
     variety: tr?.variety || "",
     family: r.family || "",
-    habitat: arrPick(r.habitat),
-    growthForm: arrPick(r.plant_habit),
-    foliage: arrPick(r.foliage_persistence),
-    lightNeeds: arrPick(r.sunlight),
-    nativeRegion: arrPick(tr?.origin),
+    habitat: arrAll(r.habitat),
+    growthForm: arrAll(r.plant_habit),
+    foliage: arrAll(r.foliage_persistence),
+    lightNeeds: arrAll(r.sunlight),
+    nativeRegion: arrAll(tr?.origin),
     toxicity: worstToxicity(r.toxicity_human, r.toxicity_pets),
   };
 }
@@ -343,9 +347,76 @@ export async function loadDailyPuzzle(now = new Date()) {
   }
 }
 
+// Short queries cap the dropdown so it stays scannable; once the user
+// has typed enough to be specific, surface the full result set so they
+// can scroll/arrow through every match.
+const SEARCH_SHORT_LIMIT = 6;
+const SEARCH_FULL_LIMIT = 500;
+const SEARCH_LONG_THRESHOLD = 5;
+
+function searchLimit(q) {
+  return q.length > SEARCH_LONG_THRESHOLD ? SEARCH_FULL_LIMIT : SEARCH_SHORT_LIMIT;
+}
+
+// Stable sort: surface the base form (no variety) before any cultivar so
+// the user typing "monstera" lands on Monstera deliciosa first instead of
+// "Monstera deliciosa 'Thai Constellation'".
+function prioritizeBaseForm(rows) {
+  return rows
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => {
+      const va = a.p.variety ? 1 : 0;
+      const vb = b.p.variety ? 1 : 0;
+      if (va !== vb) return va - vb;
+      return a.i - b.i;
+    })
+    .map((x) => x.p);
+}
+
 function localSearch(q) {
   const lower = q.toLowerCase();
-  return GUESSABLE.filter((p) => p.name.toLowerCase().includes(lower)).slice(0, 6);
+  const hits = GUESSABLE.filter((p) => p.name.toLowerCase().includes(lower));
+  return prioritizeBaseForm(hits).slice(0, searchLimit(q));
+}
+
+// Loads the answer plant for an arbitrary puzzle number — used by the
+// Archive replay flow. Identical lookup logic to loadDailyPuzzle (prefer
+// the recorded daily_log pick, fall back to the deterministic rotation),
+// but never writes to daily_log since the puzzle is historical.
+export async function loadArchivedPuzzle(puzzleNo) {
+  if (puzzleNo == null) return null;
+  if (!isSupabaseConfigured) {
+    const plant = getDailyAnswer(puzzleNo, DAILY_PLANTS) || ANSWER_PLANT;
+    return { puzzleNo, plant, source: "local" };
+  }
+  try {
+    const storedId = await fetchStoredDailyPlantId(puzzleNo);
+    let chosenId = storedId;
+    if (!chosenId) {
+      const ids = await fetchPlantIds();
+      if (ids && ids.length) chosenId = ids[rotationIndex(puzzleNo, ids.length)];
+    }
+    if (!chosenId) {
+      const plant = getDailyAnswer(puzzleNo, DAILY_PLANTS) || ANSWER_PLANT;
+      return { puzzleNo, plant, source: "local" };
+    }
+    const data = await runWithFallback((sel) =>
+      supabase
+        .from("plants")
+        .select(sel)
+        .eq("id", chosenId)
+        .eq("plant_translations.language", PLANT_LANG)
+        .maybeSingle(),
+    );
+    if (!data) {
+      const plant = getDailyAnswer(puzzleNo, DAILY_PLANTS) || ANSWER_PLANT;
+      return { puzzleNo, plant, source: "local" };
+    }
+    return { puzzleNo, plant: rowToPlant(data), source: "supabase" };
+  } catch {
+    const plant = getDailyAnswer(puzzleNo, DAILY_PLANTS) || ANSWER_PLANT;
+    return { puzzleNo, plant, source: "local" };
+  }
 }
 
 export async function searchGuessable(q, { signal } = {}) {
@@ -353,6 +424,7 @@ export async function searchGuessable(q, { signal } = {}) {
   if (!trimmed) return [];
   if (!isSupabaseConfigured) return localSearch(trimmed);
 
+  const limit = searchLimit(trimmed);
   for (const sel of [PLANT_SELECT_FULL, PLANT_SELECT_FALLBACK]) {
     try {
       let builder = supabase
@@ -360,14 +432,14 @@ export async function searchGuessable(q, { signal } = {}) {
         .select(sel)
         .eq("plant_translations.language", PLANT_LANG)
         .ilike("plant_translations.name", `%${trimmed}%`)
-        .limit(6);
+        .limit(limit);
       if (signal && typeof builder.abortSignal === "function") {
         builder = builder.abortSignal(signal);
       }
       const { data, error } = await builder;
       if (error || !Array.isArray(data)) continue;
       if (data.length === 0) return [];
-      return data.map(rowToGuessable);
+      return prioritizeBaseForm(data.map(rowToGuessable));
     } catch {
       /* try fallback select */
     }
@@ -405,12 +477,23 @@ export async function loadDistribution(puzzleNo) {
 export async function submitResult(puzzleNo, outcome, guessCount) {
   if (!isSupabaseConfigured) return false;
   try {
-    const userResp = await supabase.auth.getUser();
-    const user = userResp?.data?.user;
-    if (!user) return false;
+    let playerId = null;
+    try {
+      const userResp = await supabase.auth.getUser();
+      playerId = userResp?.data?.user?.id || null;
+    } catch {
+      // ignore — will fall back to anon id below
+    }
+    if (!playerId) {
+      // No auth session: tag the result with the per-day anon id used by
+      // the analytics tables so admins can join attempts → final score.
+      const { getDailyAnonId } = await import("./analytics.js");
+      playerId = getDailyAnonId();
+    }
+    if (!playerId) return false;
     const { error } = await aph().from("puzzle_results").insert({
       puzzle_no: puzzleNo,
-      player_id: user.id,
+      player_id: playerId,
       outcome,
       guess_count: guessCount,
     });
