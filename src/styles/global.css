@@ -1,7 +1,7 @@
 :root {
-  --serif: "Fraunces", Georgia, serif;
-  --sans: "Geist", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --mono: "Geist Mono", ui-monospace, monospace;
+  --serif: "Fira Code", ui-monospace, monospace;
+  --sans: "Fira Code", ui-monospace, monospace;
+  --mono: "Fira Code", ui-monospace, monospace;
 }
 
 * {
@@ -50,5 +50,98 @@ input {
   to {
     transform: translateY(0);
     opacity: 1;
+  }
+}
+
+/* ---------- Mobile responsive (<= 768px) ---------- */
+@media (max-width: 768px) {
+  .aph-header {
+    flex-wrap: wrap !important;
+    padding: 14px 16px 0 !important;
+    gap: 10px !important;
+    row-gap: 10px !important;
+  }
+  .aph-header-meta {
+    order: 3;
+    flex-basis: 100%;
+    text-align: center;
+  }
+  .aph-header-controls {
+    flex-wrap: wrap !important;
+    justify-content: flex-end;
+  }
+
+  .aph-container {
+    padding: 18px 16px 60px !important;
+  }
+
+  .aph-main-grid {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+
+  .aph-mosaic-col {
+    position: static !important;
+    top: auto !important;
+  }
+
+  .aph-plant-image {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 1 / 1 !important;
+  }
+
+  .aph-finish-image {
+    max-width: 100% !important;
+  }
+
+  .aph-finish-title {
+    font-size: 36px !important;
+  }
+  .aph-finish-subtitle {
+    font-size: 14px !important;
+  }
+  .aph-finish-fact {
+    font-size: 18px !important;
+  }
+  .aph-finish-yougot {
+    font-size: 48px !important;
+  }
+
+  .aph-guess-row,
+  .aph-guess-row-header {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .aph-guess-row > :first-child {
+    grid-column: 1 / -1;
+  }
+  .aph-guess-row-header {
+    display: none !important;
+  }
+
+  .aph-empty-cmp-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+
+  .aph-sheet-header,
+  .aph-sheet-body {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+}
+
+/* ---------- Small phones (<= 420px) ---------- */
+@media (max-width: 420px) {
+  .aph-title {
+    font-size: 18px !important;
+  }
+  .aph-header-meta {
+    font-size: 10px !important;
+  }
+  .aph-finish-title {
+    font-size: 28px !important;
+  }
+  .aph-empty-cmp-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
   }
 }

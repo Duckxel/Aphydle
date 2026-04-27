@@ -102,6 +102,7 @@ export function PlantImage({ src, level, theme, size = 560, framed = true }) {
 
   return (
     <div
+      className="aph-plant-image"
       style={{
         position: "relative",
         width: size,

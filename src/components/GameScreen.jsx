@@ -42,6 +42,7 @@ export function GameScreen({
       }}
     >
       <header
+        className="aph-header"
         style={{
           maxWidth: 1280,
           margin: "0 auto",
@@ -52,8 +53,9 @@ export function GameScreen({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <MosaicLeaf size={22} theme={theme} />
+          <MosaicLeaf size={36} theme={theme} />
           <div
+            className="aph-title"
             style={{
               fontFamily: "var(--serif)",
               fontSize: 22,
@@ -65,6 +67,7 @@ export function GameScreen({
           </div>
         </div>
         <div
+          className="aph-header-meta"
           style={{
             fontFamily: "var(--mono)",
             fontSize: 11,
@@ -74,7 +77,7 @@ export function GameScreen({
         >
           {dateLabel} · No. {puzzleNo}
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div className="aph-header-controls" style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {APHYLIA_HOST_URL ? <AphyliaBackLink theme={theme} /> : <AphyliaPill theme={theme} />}
           <ThemeToggle theme={theme} onChange={onChangeTheme} />
           <NavBtn theme={theme} label="?" onClick={() => setOverlay("how")} title="How to play" />
@@ -84,6 +87,7 @@ export function GameScreen({
       </header>
 
       <div
+        className="aph-container"
         style={{
           maxWidth: 1280,
           margin: "0 auto",
@@ -91,6 +95,7 @@ export function GameScreen({
         }}
       >
         <div
+          className="aph-main-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "440px 1fr",
@@ -98,7 +103,7 @@ export function GameScreen({
             alignItems: "start",
           }}
         >
-          <div style={{ position: "sticky", top: 28 }}>
+          <div className="aph-mosaic-col" style={{ position: "sticky", top: 28 }}>
             <div
               style={{
                 display: "flex",
@@ -261,6 +266,7 @@ function EmptyComparison({ theme }) {
         Each guess reveals which attributes match the mystery plant. The image clears one step with every wrong try.
       </div>
       <div
+        className="aph-empty-cmp-grid"
         style={{
           display: "grid",
           gridTemplateColumns: `repeat(${COMPARE_COLUMNS.length}, minmax(0, 1fr))`,

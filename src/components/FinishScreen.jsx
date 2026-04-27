@@ -55,6 +55,7 @@ export function FinishScreen({
       }}
     >
       <header
+        className="aph-header"
         style={{
           maxWidth: 1200,
           margin: "0 auto",
@@ -65,8 +66,9 @@ export function FinishScreen({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <MosaicLeaf size={22} theme={theme} />
+          <MosaicLeaf size={36} theme={theme} />
           <div
+            className="aph-title"
             style={{
               fontFamily: "var(--serif)",
               fontSize: 22,
@@ -78,6 +80,7 @@ export function FinishScreen({
           </div>
         </div>
         <div
+          className="aph-header-meta"
           style={{
             fontFamily: "var(--mono)",
             fontSize: 11,
@@ -87,7 +90,7 @@ export function FinishScreen({
         >
           {dateLabel} · No. {puzzleNo} · {won ? "SOLVED" : "REVEALED"}
         </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div className="aph-header-controls" style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {APHYLIA_HOST_URL ? <AphyliaBackLink theme={theme} /> : <AphyliaPill theme={theme} />}
           {onChangeTheme && <ThemeToggle theme={theme} onChange={onChangeTheme} />}
           <NavBtn theme={theme} label="?" onClick={() => setOverlay("how")} title="How to play" />
@@ -96,8 +99,9 @@ export function FinishScreen({
         </div>
       </header>
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 40px 80px" }}>
+      <div className="aph-container" style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 40px 80px" }}>
         <div
+          className="aph-main-grid"
           style={{
             display: "grid",
             gridTemplateColumns: "560px 1fr",
@@ -123,6 +127,7 @@ export function FinishScreen({
               <span style={{ color: T.muted }}>{String(guessCount).padStart(2, "0")} / 10</span>
             </div>
             <div
+              className="aph-finish-image"
               style={{
                 width: "100%",
                 maxWidth: 560,
@@ -155,6 +160,7 @@ export function FinishScreen({
 
           <div>
             <h1
+              className="aph-finish-title"
               style={{
                 fontFamily: "var(--serif)",
                 fontSize: 56,
@@ -168,6 +174,7 @@ export function FinishScreen({
               {plant.commonName}
             </h1>
             <div
+              className="aph-finish-subtitle"
               style={{
                 fontFamily: "var(--sans)",
                 fontStyle: "italic",
@@ -184,6 +191,7 @@ export function FinishScreen({
               <>
                 <div style={{ height: 1, background: T.border, margin: "28px 0" }} />
                 <p
+                  className="aph-finish-fact"
                   style={{
                     fontFamily: "var(--serif)",
                     fontStyle: "italic",
@@ -206,6 +214,7 @@ export function FinishScreen({
                 <Section label="YOU" theme={theme}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 14, marginTop: 6 }}>
                     <span
+                      className="aph-finish-yougot"
                       style={{
                         fontFamily: "var(--serif)",
                         fontSize: 64,

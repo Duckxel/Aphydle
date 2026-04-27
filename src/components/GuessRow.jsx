@@ -9,6 +9,7 @@ export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
 
   return (
     <div
+      className="aph-guess-row"
       style={{
         display: "grid",
         gridTemplateColumns: "minmax(180px, 1.2fr) repeat(7, minmax(0, 1fr))",
@@ -114,6 +115,7 @@ export function GuessRowHeader({ theme }) {
   const T = tokens(theme);
   return (
     <div
+      className="aph-guess-row-header"
       style={{
         display: "grid",
         gridTemplateColumns: "minmax(180px, 1.2fr) repeat(7, minmax(0, 1fr))",

@@ -2,8 +2,26 @@ import { useEffect, useMemo, useState } from "react";
 import { tokens } from "../ui/tokens.js";
 import { Sheet } from "./Sheet.jsx";
 import { loadHistory } from "../../lib/storage.js";
-import { loadRecentPuzzles } from "../../lib/data.js";
+import {
+  loadRecentPuzzles,
+  loadDailyPuzzleLog,
+  formatDailyLogText,
+} from "../../lib/data.js";
 import { formatPuzzleDate } from "../../engine/game.js";
+
+async function downloadDailyLog() {
+  const entries = await loadDailyPuzzleLog();
+  const text = formatDailyLogText(entries || []);
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "aphydle-daily-log.txt";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 function formatIsoDate(iso) {
   if (!iso) return "";
@@ -27,7 +45,14 @@ export function ArchiveScreen({ theme, onClose, currentPuzzleNo }) {
     };
   }, []);
 
+  // While `remote === null` we're still waiting on Supabase. Don't render
+  // history-derived entries during that window — every history row is
+  // implicitly `played`, which would briefly reveal the very thumbnails we
+  // intend to censor before the remote list arrives and re-renders them
+  // hidden. Treat the loading state as empty until the remote settles.
+  const isLoading = remote === null;
   const entries = useMemo(() => {
+    if (isLoading) return [];
     const playedById = new Map(history.map((h) => [h.puzzleNo, h]));
     if (Array.isArray(remote) && remote.length > 0) {
       return remote.map((r) => {
@@ -52,23 +77,71 @@ export function ArchiveScreen({ theme, onClose, currentPuzzleNo }) {
         played: h,
         isToday: h.puzzleNo === currentPuzzleNo,
       }));
-  }, [remote, history, currentPuzzleNo]);
+  }, [isLoading, remote, history, currentPuzzleNo]);
 
   return (
     <Sheet theme={theme} onClose={onClose} title="Archive">
       <div
         style={{
-          fontFamily: "var(--sans)",
-          fontSize: 14,
-          color: T.muted,
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 16,
           marginBottom: 24,
-          lineHeight: 1.5,
-          maxWidth: 380,
+          flexWrap: "wrap",
         }}
       >
-        Past plants you've played. Daily puzzles you missed appear once Supabase publishes them.
+        <div
+          style={{
+            fontFamily: "var(--sans)",
+            fontSize: 14,
+            color: T.muted,
+            lineHeight: 1.5,
+            maxWidth: 380,
+          }}
+        >
+          Past plants you've played. Daily puzzles you missed appear once Supabase publishes them.
+        </div>
+        <button
+          onClick={downloadDailyLog}
+          style={{
+            padding: "8px 14px",
+            background: "transparent",
+            border: `1px solid ${T.border}`,
+            color: T.text,
+            fontFamily: "var(--mono)",
+            fontSize: 10,
+            letterSpacing: "0.14em",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+          title="Download the full server-side log of daily plant picks"
+        >
+          DOWNLOAD LOG ↓
+        </button>
       </div>
-      {entries.length === 0 ? (
+      {isLoading ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 16,
+          }}
+        >
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div
+                style={{
+                  aspectRatio: "1 / 1",
+                  background: T.elevated,
+                  opacity: 0.5,
+                }}
+              />
+              <div style={{ height: 28 }} />
+            </div>
+          ))}
+        </div>
+      ) : entries.length === 0 ? (
         <div
           style={{
             border: `1px dashed ${T.border}`,

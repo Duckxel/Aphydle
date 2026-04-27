@@ -6,6 +6,7 @@ const STATE_KEY = "aphydle:state:v1";
 const STATS_KEY = "aphydle:stats:v1";
 const HISTORY_KEY = "aphydle:history:v1";
 const INSTALL_KEY = "aphydle:install:v1";
+const DAILY_LOG_KEY = "aphydle:daily_log:v1";
 
 const HISTORY_MAX = 365;
 
@@ -171,4 +172,40 @@ export function recordResult(puzzleNo, outcome, guessCount, plant = null) {
   }
 
   return stats;
+}
+
+// ── Daily plant log (local mirror of aphydle.daily_log) ──────────────────────
+// Every resolved daily puzzle is stamped here so the client always has a
+// trace of which plant was served on which day, even when Supabase isn't
+// reachable. Each entry: { puzzleNo, puzzleDate (YYYY-MM-DD UTC), plantId }.
+export function loadLocalDailyLog() {
+  const w = safeWindow();
+  if (!w) return [];
+  try {
+    const raw = w.localStorage.getItem(DAILY_LOG_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function appendLocalDailyLog(entry) {
+  const w = safeWindow();
+  if (!w || !entry || entry.puzzleNo == null || !entry.plantId) return;
+  try {
+    const log = loadLocalDailyLog();
+    if (log.some((e) => e.puzzleNo === entry.puzzleNo)) return;
+    log.push({
+      puzzleNo: entry.puzzleNo,
+      puzzleDate: entry.puzzleDate || null,
+      plantId: entry.plantId,
+      recordedAt: Date.now(),
+    });
+    log.sort((a, b) => a.puzzleNo - b.puzzleNo);
+    w.localStorage.setItem(DAILY_LOG_KEY, JSON.stringify(log));
+  } catch {
+    // ignore
+  }
 }
