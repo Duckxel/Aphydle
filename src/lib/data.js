@@ -358,9 +358,25 @@ function searchLimit(q) {
   return q.length > SEARCH_LONG_THRESHOLD ? SEARCH_FULL_LIMIT : SEARCH_SHORT_LIMIT;
 }
 
+// Stable sort: surface the base form (no variety) before any cultivar so
+// the user typing "monstera" lands on Monstera deliciosa first instead of
+// "Monstera deliciosa 'Thai Constellation'".
+function prioritizeBaseForm(rows) {
+  return rows
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => {
+      const va = a.p.variety ? 1 : 0;
+      const vb = b.p.variety ? 1 : 0;
+      if (va !== vb) return va - vb;
+      return a.i - b.i;
+    })
+    .map((x) => x.p);
+}
+
 function localSearch(q) {
   const lower = q.toLowerCase();
-  return GUESSABLE.filter((p) => p.name.toLowerCase().includes(lower)).slice(0, searchLimit(q));
+  const hits = GUESSABLE.filter((p) => p.name.toLowerCase().includes(lower));
+  return prioritizeBaseForm(hits).slice(0, searchLimit(q));
 }
 
 export async function searchGuessable(q, { signal } = {}) {
@@ -383,7 +399,7 @@ export async function searchGuessable(q, { signal } = {}) {
       const { data, error } = await builder;
       if (error || !Array.isArray(data)) continue;
       if (data.length === 0) return [];
-      return data.map(rowToGuessable);
+      return prioritizeBaseForm(data.map(rowToGuessable));
     } catch {
       /* try fallback select */
     }
