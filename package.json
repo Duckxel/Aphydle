@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Aphydle — daily plant guessing game. Designed to be embedded inside PlantSwipe.",
+  "description": "Aphydle — daily plant guessing game. Designed to be embedded inside the Aphylia host.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
