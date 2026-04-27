@@ -140,7 +140,14 @@ export function GameScreen({
             <div style={{ marginTop: 14 }}>
               <MosaicStrip theme={theme} height={6} opacity={0.4} />
             </div>
-            <div style={{ marginTop: 18 }}>
+            <div
+              className="aph-guess-input-wrap"
+              style={{
+                marginTop: 18,
+                "--aph-guess-bg": T.bg,
+                "--aph-guess-border": T.border,
+              }}
+            >
               <GuessInput
                 theme={theme}
                 onSubmit={(p) => dispatch({ type: "guess", plant: p, answerId: answer.id })}

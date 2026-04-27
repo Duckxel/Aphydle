@@ -37,7 +37,7 @@ export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
       className="aph-guess-row"
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(180px, 1.2fr) repeat(7, minmax(0, 1fr))",
+        gridTemplateColumns: "repeat(8, minmax(0, 1fr))",
         gap: 4,
         animation: isLatest ? "aphSlideUp 0.4s cubic-bezier(0.16,1,0.3,1)" : "none",
         marginBottom: 4,
@@ -147,7 +147,7 @@ export function GuessRowHeader({ theme }) {
       className="aph-guess-row-header"
       style={{
         display: "grid",
-        gridTemplateColumns: "minmax(180px, 1.2fr) repeat(7, minmax(0, 1fr))",
+        gridTemplateColumns: "repeat(8, minmax(0, 1fr))",
         gap: 4,
         marginBottom: 6,
         paddingLeft: 12,
