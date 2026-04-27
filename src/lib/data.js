@@ -194,11 +194,14 @@ function localDailyPuzzle(now) {
 
 // Fetches the stable list of plant ids the daily rotation indexes into.
 // Ordered by id so every client picks the same plant for a given puzzle no.
+// The `plant_images!inner(link)` hint asks PostgREST to drop any plant that
+// has zero rows in plant_images — the puzzle ends with a FinishScreen image,
+// so an imageless plant would render a broken card and we'd rather skip it.
 async function fetchPlantIds() {
   try {
     const { data, error } = await supabase
       .from("plants")
-      .select("id")
+      .select("id, plant_images!inner(link)")
       .order("id", { ascending: true });
     if (error || !Array.isArray(data) || data.length === 0) return null;
     return data.map((r) => r.id);
