@@ -4,14 +4,17 @@ import { searchGuessable } from "../../lib/data.js";
 
 const SEARCH_DEBOUNCE_MS = 180;
 
-export function GuessInput({ theme, onSubmit, disabled, attemptsLeft }) {
+export function GuessInput({ theme, onSubmit, disabled, attemptsLeft, guessedIds = [] }) {
   const T = tokens(theme);
   const [q, setQ] = useState("");
-  const [matches, setMatches] = useState([]);
+  const [rawMatches, setRawMatches] = useState([]);
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef(null);
   const abortRef = useRef(null);
+
+  const guessedSet = new Set(guessedIds);
+  const matches = rawMatches.filter((p) => !guessedSet.has(p.id));
 
   // Debounced suggestion lookup. Each keystroke schedules a search and
   // cancels any in-flight request, so we only ever render the latest
@@ -20,7 +23,7 @@ export function GuessInput({ theme, onSubmit, disabled, attemptsLeft }) {
     setActiveIdx(0);
     const trimmed = q.trim();
     if (!trimmed) {
-      setMatches([]);
+      setRawMatches([]);
       return undefined;
     }
     if (abortRef.current) abortRef.current.abort();
@@ -32,7 +35,7 @@ export function GuessInput({ theme, onSubmit, disabled, attemptsLeft }) {
       const results = await searchGuessable(trimmed, {
         signal: controller?.signal,
       });
-      if (!cancelled) setMatches(results);
+      if (!cancelled) setRawMatches(results);
     }, SEARCH_DEBOUNCE_MS);
     return () => {
       cancelled = true;
@@ -43,9 +46,10 @@ export function GuessInput({ theme, onSubmit, disabled, attemptsLeft }) {
 
   function submit(plant) {
     if (!plant || disabled) return;
+    if (guessedSet.has(plant.id)) return;
     onSubmit(plant);
     setQ("");
-    setMatches([]);
+    setRawMatches([]);
     setOpen(false);
   }
 

@@ -91,11 +91,15 @@ function worstToxicity(human, pets) {
   return tidy(winner) || "Unknown";
 }
 
-// habitat / plant_habit / foliage_persistence / sunlight are text[] enums.
-// The match grid only renders one string per cell, so surface the first.
-function arrPick(v) {
-  if (Array.isArray(v)) return v.length ? tidy(v[0]) : "";
-  return tidy(v);
+// habitat / plant_habit / foliage_persistence / sunlight / origin are text[]
+// enums. Return every entry tidied so the match grid can do per-element
+// comparison (any-of) and only render the items that matter.
+function arrAll(v) {
+  if (Array.isArray(v)) {
+    return v.map(tidy).filter(Boolean);
+  }
+  const s = tidy(v);
+  return s ? [s] : [];
 }
 
 // plant_images is one-to-many. PlantSwipe tags rows with a `use` (e.g. card,
@@ -123,12 +127,12 @@ function rowToPlant(r) {
     variety: tr?.variety || "",
     scientificName: r.name || tr?.name || "",
     family: r.family || "",
-    habitat: arrPick(r.habitat),
-    growthForm: arrPick(r.plant_habit),
-    foliage: arrPick(r.foliage_persistence),
+    habitat: arrAll(r.habitat),
+    growthForm: arrAll(r.plant_habit),
+    foliage: arrAll(r.foliage_persistence),
     careLevel: 0,
-    lightNeeds: arrPick(r.sunlight),
-    nativeRegion: arrPick(tr?.origin),
+    lightNeeds: arrAll(r.sunlight),
+    nativeRegion: arrAll(tr?.origin),
     toxicity: worstToxicity(r.toxicity_human, r.toxicity_pets),
     dominantColors: [],
     imageUrl: pickImage(r.plant_images),
@@ -144,11 +148,11 @@ function rowToGuessable(r) {
     name: tr?.name || r.name || "",
     variety: tr?.variety || "",
     family: r.family || "",
-    habitat: arrPick(r.habitat),
-    growthForm: arrPick(r.plant_habit),
-    foliage: arrPick(r.foliage_persistence),
-    lightNeeds: arrPick(r.sunlight),
-    nativeRegion: arrPick(tr?.origin),
+    habitat: arrAll(r.habitat),
+    growthForm: arrAll(r.plant_habit),
+    foliage: arrAll(r.foliage_persistence),
+    lightNeeds: arrAll(r.sunlight),
+    nativeRegion: arrAll(tr?.origin),
     toxicity: worstToxicity(r.toxicity_human, r.toxicity_pets),
   };
 }

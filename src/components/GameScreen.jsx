@@ -146,6 +146,7 @@ export function GameScreen({
                 onSubmit={(p) => dispatch({ type: "guess", plant: p, answerId: answer.id })}
                 disabled={false}
                 attemptsLeft={attemptsLeft}
+                guessedIds={state.guesses.map((g) => g.id)}
               />
             </div>
           </div>

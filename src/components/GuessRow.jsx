@@ -1,6 +1,31 @@
 import { tokens } from "./ui/tokens.js";
 import { COMPARE_COLUMNS } from "../data/plants.js";
 
+function toItems(v) {
+  if (Array.isArray(v)) return v.filter((x) => x != null && x !== "");
+  if (v == null || v === "") return [];
+  return [v];
+}
+
+function normalize(s) {
+  return String(s).trim().toLowerCase();
+}
+
+// Compare list-or-scalar attributes any-of: if any guess element matches any
+// answer element, surface only the matches; otherwise just show the first
+// guess element so long lists don't blow up the cell.
+function compareValues(guessVal, answerVal) {
+  const guessItems = toItems(guessVal);
+  const answerItems = toItems(answerVal);
+  if (!guessItems.length || !answerItems.length) {
+    return { match: false, items: guessItems.slice(0, 1) };
+  }
+  const answerSet = new Set(answerItems.map(normalize));
+  const matches = guessItems.filter((g) => answerSet.has(normalize(g)));
+  if (matches.length) return { match: true, items: matches };
+  return { match: false, items: guessItems.slice(0, 1) };
+}
+
 export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
   const T = tokens(theme);
   const matchAccent = "#00D26A";
@@ -32,6 +57,19 @@ export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
             }}
           >
             {guess.name}
+            {guess.variety && (
+              <span
+                style={{
+                  fontStyle: "italic",
+                  fontWeight: 400,
+                  color: isAnswer ? accent : T.muted,
+                  marginLeft: 6,
+                  fontSize: 12,
+                }}
+              >
+                {guess.variety}
+              </span>
+            )}
           </div>
           {isAnswer && (
             <div
@@ -49,36 +87,27 @@ export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
         </div>
       </Cell>
       {COMPARE_COLUMNS.map((col) => {
-        const guessVal = guess[col.key];
-        const answerVal = answer[col.key];
-        const match = guessVal && answerVal && guessVal === answerVal;
+        const { match, items } = compareValues(guess[col.key], answer[col.key]);
+        const display = items.length ? items : ["—"];
         return (
           <Cell key={col.key} theme={theme} isMatch={match} accent={accent}>
-            <div
-              style={{
-                fontFamily: "var(--mono)",
-                fontSize: 8,
-                letterSpacing: "0.1em",
-                color: match ? accent : T.subtle,
-                fontWeight: 600,
-                textTransform: "uppercase",
-                marginBottom: 4,
-              }}
-            >
-              {col.label}
-            </div>
-            <div
-              style={{
-                fontFamily: "var(--sans)",
-                fontSize: 11,
-                color: match ? accent : T.muted,
-                textDecoration: match ? "none" : "line-through",
-                textDecorationColor: match ? "transparent" : `${T.muted}60`,
-                fontWeight: match ? 600 : 400,
-                lineHeight: 1.25,
-              }}
-            >
-              {guessVal || "—"}
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {display.map((item, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    fontFamily: "var(--sans)",
+                    fontSize: 11,
+                    color: match ? accent : T.muted,
+                    textDecoration: match ? "none" : "line-through",
+                    textDecorationColor: match ? "transparent" : `${T.muted}60`,
+                    fontWeight: match ? 600 : 400,
+                    lineHeight: 1.25,
+                  }}
+                >
+                  {item}
+                </div>
+              ))}
             </div>
           </Cell>
         );
