@@ -8,6 +8,7 @@ import {
   msUntilNextUtcMidnight,
 } from "./engine/game.js";
 import { loadDailyPuzzle, submitResult } from "./lib/data.js";
+import { preloadImage } from "./lib/imageCache.js";
 import { loadGameState, saveGameState, recordResult } from "./lib/storage.js";
 
 export default function App() {
@@ -41,6 +42,13 @@ export default function App() {
 
   const puzzleNo = puzzle?.puzzleNo ?? null;
   const answer = puzzle?.plant ?? null;
+
+  // Warm the image cache the moment the URL is known so the canvas mosaic
+  // and the FinishScreen <img> both paint instantly when they mount —
+  // including across navigation between the two and after a page reload.
+  useEffect(() => {
+    if (answer?.imageUrl) preloadImage(answer.imageUrl);
+  }, [answer?.imageUrl]);
 
   // Schedule a refresh at the next UTC midnight.
   useEffect(() => {

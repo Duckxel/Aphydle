@@ -1,26 +1,41 @@
 import { useEffect, useRef, useState } from "react";
 import { tileCountForLevel } from "../engine/game.js";
+import { getCachedImage, preloadImage } from "../lib/imageCache.js";
 
 export function PlantImage({ src, level, theme, size = 560, framed = true }) {
   const canvasRef = useRef(null);
-  const imgRef = useRef(null);
+  // Seed from the shared cache so a remount (e.g. theme toggle, navigation)
+  // can paint the first frame without flashing the LOADING placeholder.
+  const cachedAtMount = getCachedImage(src);
+  const imgRef = useRef(cachedAtMount);
   const rafRef = useRef(null);
   const currentLevelRef = useRef(level);
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(Boolean(cachedAtMount));
 
   useEffect(() => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.src = src;
-    img.onload = () => {
+    let cancelled = false;
+    const cached = getCachedImage(src);
+    if (cached) {
+      imgRef.current = cached;
+      setLoaded(true);
+      draw(currentLevelRef.current);
+      return () => {
+        cancelled = true;
+      };
+    }
+    setLoaded(false);
+    preloadImage(src).then((img) => {
+      if (cancelled) return;
+      if (!img) {
+        setLoaded(false);
+        return;
+      }
       imgRef.current = img;
       setLoaded(true);
       draw(currentLevelRef.current);
-    };
-    img.onerror = () => setLoaded(false);
+    });
     return () => {
-      img.onload = null;
-      img.onerror = null;
+      cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [src]);
