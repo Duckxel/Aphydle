@@ -60,7 +60,7 @@ export function GameScreen({
               fontFamily: "var(--serif)",
               fontSize: 22,
               letterSpacing: "0.04em",
-              fontWeight: 500,
+              fontWeight: 700,
             }}
           >
             Aphydle
