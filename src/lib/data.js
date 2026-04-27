@@ -347,9 +347,20 @@ export async function loadDailyPuzzle(now = new Date()) {
   }
 }
 
+// Short queries cap the dropdown so it stays scannable; once the user
+// has typed enough to be specific, surface the full result set so they
+// can scroll/arrow through every match.
+const SEARCH_SHORT_LIMIT = 6;
+const SEARCH_FULL_LIMIT = 500;
+const SEARCH_LONG_THRESHOLD = 5;
+
+function searchLimit(q) {
+  return q.length > SEARCH_LONG_THRESHOLD ? SEARCH_FULL_LIMIT : SEARCH_SHORT_LIMIT;
+}
+
 function localSearch(q) {
   const lower = q.toLowerCase();
-  return GUESSABLE.filter((p) => p.name.toLowerCase().includes(lower)).slice(0, 6);
+  return GUESSABLE.filter((p) => p.name.toLowerCase().includes(lower)).slice(0, searchLimit(q));
 }
 
 export async function searchGuessable(q, { signal } = {}) {
@@ -357,6 +368,7 @@ export async function searchGuessable(q, { signal } = {}) {
   if (!trimmed) return [];
   if (!isSupabaseConfigured) return localSearch(trimmed);
 
+  const limit = searchLimit(trimmed);
   for (const sel of [PLANT_SELECT_FULL, PLANT_SELECT_FALLBACK]) {
     try {
       let builder = supabase
@@ -364,7 +376,7 @@ export async function searchGuessable(q, { signal } = {}) {
         .select(sel)
         .eq("plant_translations.language", PLANT_LANG)
         .ilike("plant_translations.name", `%${trimmed}%`)
-        .limit(6);
+        .limit(limit);
       if (signal && typeof builder.abortSignal === "function") {
         builder = builder.abortSignal(signal);
       }

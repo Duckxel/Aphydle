@@ -12,9 +12,18 @@ export function GuessInput({ theme, onSubmit, disabled, attemptsLeft, guessedIds
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef(null);
   const abortRef = useRef(null);
+  const optionRefs = useRef([]);
 
   const guessedSet = new Set(guessedIds);
   const matches = rawMatches.filter((p) => !guessedSet.has(p.id));
+
+  // Keep the keyboard-active suggestion visible when the dropdown is long.
+  useEffect(() => {
+    const node = optionRefs.current[activeIdx];
+    if (node && typeof node.scrollIntoView === "function") {
+      node.scrollIntoView({ block: "nearest" });
+    }
+  }, [activeIdx]);
 
   // Debounced suggestion lookup. Each keystroke schedules a search and
   // cancels any in-flight request, so we only ever render the latest
@@ -91,6 +100,9 @@ export function GuessInput({ theme, onSubmit, disabled, attemptsLeft, guessedIds
           {matches.map((p, i) => (
             <div
               key={p.id}
+              ref={(el) => {
+                optionRefs.current[i] = el;
+              }}
               onMouseDown={(e) => {
                 e.preventDefault();
                 submit(p);
