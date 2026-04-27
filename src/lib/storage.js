@@ -181,32 +181,66 @@ function saveHistory(entries) {
   }
 }
 
+function bucketFor(outcome, guessCount) {
+  if (outcome === "won") return Math.min(Math.max(guessCount - 1, 0), 9);
+  return 10;
+}
+
 export function recordResult(puzzleNo, outcome, guessCount, plant = null) {
   const w = safeWindow();
   if (!w) return loadStats();
   const stats = loadStats();
-  if (stats.lastPuzzleNo === puzzleNo) return stats; // already recorded
-  stats.played += 1;
-  if (outcome === "won") {
-    stats.won += 1;
-    const bucket = Math.min(Math.max(guessCount - 1, 0), 9);
-    stats.distribution[bucket] += 1;
-    stats.currentStreak =
-      stats.lastPuzzleNo === puzzleNo - 1 ? stats.currentStreak + 1 : 1;
-    if (stats.currentStreak > stats.maxStreak) stats.maxStreak = stats.currentStreak;
-  } else {
-    stats.distribution[10] += 1;
-    stats.currentStreak = 0;
+  const history = loadHistory();
+  const existing = history.find((h) => h.puzzleNo === puzzleNo);
+
+  // No-op if the latest call carries the same result we already saved.
+  // Anything else is treated as an update-in-place: rewrite the history
+  // entry and rebalance the stats bucket so a replay (or a stale entry
+  // from before per-puzzle state hydration landed) reflects the current
+  // run instead of the original one.
+  if (existing && existing.outcome === outcome && existing.guessCount === guessCount) {
+    return stats;
   }
-  stats.lastPuzzleNo = puzzleNo;
+
+  if (existing) {
+    const oldBucket = bucketFor(existing.outcome, existing.guessCount);
+    if (stats.distribution[oldBucket] > 0) stats.distribution[oldBucket] -= 1;
+    if (existing.outcome === "won" && outcome !== "won") {
+      stats.won = Math.max(0, stats.won - 1);
+    } else if (existing.outcome !== "won" && outcome === "won") {
+      stats.won += 1;
+    }
+  } else {
+    stats.played += 1;
+    if (outcome === "won") stats.won += 1;
+    // Streaks only advance on the first finish for a puzzle — replaying
+    // an already-recorded puzzle shouldn't retroactively bump them.
+    if (outcome === "won") {
+      stats.currentStreak =
+        stats.lastPuzzleNo === puzzleNo - 1 ? stats.currentStreak + 1 : 1;
+      if (stats.currentStreak > stats.maxStreak) stats.maxStreak = stats.currentStreak;
+    } else {
+      stats.currentStreak = 0;
+    }
+    stats.lastPuzzleNo = puzzleNo;
+  }
+
+  stats.distribution[bucketFor(outcome, guessCount)] += 1;
+
   try {
     w.localStorage.setItem(STATS_KEY, JSON.stringify(stats));
   } catch {
     // ignore
   }
 
-  const history = loadHistory();
-  if (!history.some((h) => h.puzzleNo === puzzleNo)) {
+  if (existing) {
+    existing.outcome = outcome;
+    existing.guessCount = guessCount;
+    existing.plantId = plant?.id || existing.plantId;
+    existing.plantName = plant?.commonName || existing.plantName;
+    existing.imageUrl = plant?.imageUrl || existing.imageUrl;
+    existing.finishedAt = Date.now();
+  } else {
     history.push({
       puzzleNo,
       outcome,
@@ -216,8 +250,8 @@ export function recordResult(puzzleNo, outcome, guessCount, plant = null) {
       imageUrl: plant?.imageUrl || null,
       finishedAt: Date.now(),
     });
-    saveHistory(history);
   }
+  saveHistory(history);
 
   return stats;
 }

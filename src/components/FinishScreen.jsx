@@ -41,9 +41,21 @@ export function FinishScreen({
       cancelled = true;
     };
   }, [puzzleNo]);
-  const maxBucket = dist ? Math.max(1, ...dist) : 1;
-  const totalPlayed = dist ? dist.reduce((a, b) => a + b, 0) : 0;
   const yourBucket = won ? guessCount - 1 : 10;
+  // Always render an 11-slot histogram. If the remote distribution hasn't
+  // arrived yet (or hasn't picked up this player's row yet), fall back to
+  // zeros and add the player's own contribution so they always see at
+  // least themselves placed on the chart.
+  const displayDist = (() => {
+    const base = Array.isArray(dist) && dist.length === 11
+      ? [...dist]
+      : Array(11).fill(0);
+    const ownAlreadyCounted = Array.isArray(dist) && (dist[yourBucket] || 0) > 0;
+    if (!ownAlreadyCounted) base[yourBucket] = (base[yourBucket] || 0) + 1;
+    return base;
+  })();
+  const maxBucket = Math.max(1, ...displayDist);
+  const totalPlayed = displayDist.reduce((a, b) => a + b, 0);
 
   return (
     <div
@@ -239,68 +251,91 @@ export function FinishScreen({
                   </div>
                 </Section>
 
-                {dist && totalPlayed > 0 && (
-                  <Section
-                    label={`THE WORLD · ${totalPlayed.toLocaleString()} PLAYED`}
-                    theme={theme}
+                <Section
+                  label={`THE WORLD · ${totalPlayed.toLocaleString()} PLAYED`}
+                  theme={theme}
+                >
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(11, 1fr)",
+                      gap: 4,
+                      alignItems: "end",
+                      height: 96,
+                      marginTop: 10,
+                    }}
                   >
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(11, 1fr)",
-                        gap: 4,
-                        alignItems: "end",
-                        height: 80,
-                        marginTop: 10,
-                      }}
-                    >
-                      {dist.map((v, i) => (
+                    {displayDist.map((v, i) => {
+                      const isYou = i === yourBucket;
+                      const pct = (v / maxBucket) * 100;
+                      return (
                         <div
                           key={i}
                           title={`${i < 10 ? `In ${i + 1}` : "Lost"}: ${v}`}
                           style={{
-                            height: `${(v / maxBucket) * 100}%`,
-                            background:
-                              i === yourBucket
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "flex-end",
+                            height: "100%",
+                            gap: 4,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontFamily: "var(--mono)",
+                              fontSize: 10,
+                              color: isYou ? (won ? T.accent : T.warm) : T.muted,
+                              fontWeight: isYou ? 700 : 500,
+                            }}
+                          >
+                            {v}
+                          </span>
+                          <div
+                            style={{
+                              width: "100%",
+                              height: `${pct}%`,
+                              background: isYou
                                 ? won
                                   ? T.accent
                                   : T.warm
                                 : i === 10
                                   ? T.clay
                                   : T.muted,
-                            opacity: i === yourBucket ? 1 : 0.5,
-                            minHeight: 2,
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(11, 1fr)",
-                        gap: 4,
-                        fontFamily: "var(--mono)",
-                        fontSize: 9,
-                        color: T.subtle,
-                        marginTop: 6,
-                        letterSpacing: "0.05em",
-                        textAlign: "center",
-                      }}
-                    >
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, "✗"].map((l, i) => (
-                        <span
-                          key={l}
-                          style={{
-                            color: i === yourBucket ? (won ? T.accent : T.warm) : T.subtle,
-                            fontWeight: i === yourBucket ? 600 : 400,
-                          }}
-                        >
-                          {l}
-                        </span>
-                      ))}
-                    </div>
-                  </Section>
-                )}
+                              opacity: isYou ? 1 : 0.5,
+                              minHeight: 2,
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(11, 1fr)",
+                      gap: 4,
+                      fontFamily: "var(--mono)",
+                      fontSize: 9,
+                      color: T.subtle,
+                      marginTop: 6,
+                      letterSpacing: "0.05em",
+                      textAlign: "center",
+                    }}
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, "✗"].map((l, i) => (
+                      <span
+                        key={l}
+                        style={{
+                          color: i === yourBucket ? (won ? T.accent : T.warm) : T.subtle,
+                          fontWeight: i === yourBucket ? 600 : 400,
+                        }}
+                      >
+                        {l}
+                      </span>
+                    ))}
+                  </div>
+                </Section>
 
                 {plant.commonMisguess && plant.commonMisguess.name && (
                   <Section label="COMMON MISGUESS" theme={theme}>
