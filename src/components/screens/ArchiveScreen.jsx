@@ -45,7 +45,14 @@ export function ArchiveScreen({ theme, onClose, currentPuzzleNo }) {
     };
   }, []);
 
+  // While `remote === null` we're still waiting on Supabase. Don't render
+  // history-derived entries during that window — every history row is
+  // implicitly `played`, which would briefly reveal the very thumbnails we
+  // intend to censor before the remote list arrives and re-renders them
+  // hidden. Treat the loading state as empty until the remote settles.
+  const isLoading = remote === null;
   const entries = useMemo(() => {
+    if (isLoading) return [];
     const playedById = new Map(history.map((h) => [h.puzzleNo, h]));
     if (Array.isArray(remote) && remote.length > 0) {
       return remote.map((r) => {
@@ -70,7 +77,7 @@ export function ArchiveScreen({ theme, onClose, currentPuzzleNo }) {
         played: h,
         isToday: h.puzzleNo === currentPuzzleNo,
       }));
-  }, [remote, history, currentPuzzleNo]);
+  }, [isLoading, remote, history, currentPuzzleNo]);
 
   return (
     <Sheet theme={theme} onClose={onClose} title="Archive">
@@ -113,7 +120,28 @@ export function ArchiveScreen({ theme, onClose, currentPuzzleNo }) {
           DOWNLOAD LOG ↓
         </button>
       </div>
-      {entries.length === 0 ? (
+      {isLoading ? (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: 16,
+          }}
+        >
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div
+                style={{
+                  aspectRatio: "1 / 1",
+                  background: T.elevated,
+                  opacity: 0.5,
+                }}
+              />
+              <div style={{ height: 28 }} />
+            </div>
+          ))}
+        </div>
+      ) : entries.length === 0 ? (
         <div
           style={{
             border: `1px dashed ${T.border}`,
