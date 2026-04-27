@@ -22,6 +22,8 @@ export function GameScreen({
   answer,
   puzzleNo,
   dateLabel,
+  onPlayPuzzle,
+  isArchiveSession = false,
   onChangeTheme,
 }) {
   const T = tokens(theme);
@@ -41,6 +43,40 @@ export function GameScreen({
         fontFamily: "var(--sans)",
       }}
     >
+      {isArchiveSession && onPlayPuzzle && (
+        <div
+          style={{
+            background: T.elevated,
+            borderBottom: `1px solid ${T.border}`,
+            padding: "8px 24px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 16,
+            fontFamily: "var(--mono)",
+            fontSize: 11,
+            letterSpacing: "0.12em",
+            color: T.muted,
+          }}
+        >
+          <span>ARCHIVE REPLAY · PUZZLE #{puzzleNo}</span>
+          <button
+            onClick={() => onPlayPuzzle(null)}
+            style={{
+              background: "transparent",
+              color: T.text,
+              border: `1px solid ${T.border}`,
+              padding: "4px 10px",
+              fontFamily: "var(--mono)",
+              fontSize: 10,
+              letterSpacing: "0.14em",
+              cursor: "pointer",
+            }}
+          >
+            ← TODAY
+          </button>
+        </div>
+      )}
       <header
         className="aph-header"
         style={{
@@ -232,6 +268,10 @@ export function GameScreen({
           theme={theme}
           onClose={() => setOverlay(null)}
           currentPuzzleNo={puzzleNo}
+          onPlayPuzzle={(no) => {
+            setOverlay(null);
+            if (onPlayPuzzle) onPlayPuzzle(no);
+          }}
         />
       )}
       {overlay === "how" && <HowToScreen theme={theme} onClose={() => setOverlay(null)} />}

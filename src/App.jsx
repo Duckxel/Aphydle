@@ -7,9 +7,14 @@ import {
   formatPuzzleDate,
   msUntilNextUtcMidnight,
 } from "./engine/game.js";
-import { loadDailyPuzzle, submitResult } from "./lib/data.js";
+import { loadDailyPuzzle, loadArchivedPuzzle, submitResult } from "./lib/data.js";
 import { preloadImage } from "./lib/imageCache.js";
-import { loadGameState, saveGameState, recordResult } from "./lib/storage.js";
+import {
+  loadGameState,
+  saveGameState,
+  recordResult,
+  isPuzzlePlayed,
+} from "./lib/storage.js";
 import { trackVisit, trackAttempt } from "./lib/analytics.js";
 
 export default function App() {
@@ -27,19 +32,28 @@ export default function App() {
   const [now, setNow] = useState(() => new Date());
   const dateLabel = useMemo(() => formatPuzzleDate(now), [now]);
 
-  // Today's puzzle is loaded from Supabase (with a local fallback inside
-  // the data layer). Until it resolves we render nothing — the whole app
-  // is gated on having an answer.
+  // When set, replaces today's puzzle with an archived one — the Archive
+  // screen calls onPlayPuzzle() to start a replay session for any puzzle
+  // the player hasn't completed yet.
+  const [archivePuzzleNo, setArchivePuzzleNo] = useState(null);
+
+  // The active puzzle (today's by default, or an archive replay). Until
+  // it resolves we render nothing — the whole app is gated on an answer.
   const [puzzle, setPuzzle] = useState(null);
   useEffect(() => {
     let cancelled = false;
-    loadDailyPuzzle(now).then((p) => {
+    setPuzzle(null);
+    const loader =
+      archivePuzzleNo != null
+        ? loadArchivedPuzzle(archivePuzzleNo)
+        : loadDailyPuzzle(now);
+    loader.then((p) => {
       if (!cancelled) setPuzzle(p);
     });
     return () => {
       cancelled = true;
     };
-  }, [now]);
+  }, [now, archivePuzzleNo]);
 
   const puzzleNo = puzzle?.puzzleNo ?? null;
   const answer = puzzle?.plant ?? null;
@@ -115,6 +129,17 @@ export default function App() {
 
   if (!answer || puzzleNo == null) return null;
 
+  // The Archive owns the replay-puzzle picker. A null puzzleNo from the
+  // archive means "back to today".
+  function handlePlayPuzzle(no) {
+    if (no == null) {
+      setArchivePuzzleNo(null);
+      return;
+    }
+    if (isPuzzlePlayed(no)) return; // local lock — never replay a finished puzzle
+    setArchivePuzzleNo(no);
+  }
+
   if (state.outcome) {
     return (
       <FinishScreen
@@ -125,7 +150,8 @@ export default function App() {
         layout="album"
         puzzleNo={puzzleNo}
         dateLabel={dateLabel}
-        onPlayAgain={() => dispatch({ type: "reset" })}
+        onPlayPuzzle={handlePlayPuzzle}
+        isArchiveSession={archivePuzzleNo != null}
         onChangeTheme={setTheme}
       />
     );
@@ -139,6 +165,8 @@ export default function App() {
       answer={answer}
       puzzleNo={puzzleNo}
       dateLabel={dateLabel}
+      onPlayPuzzle={handlePlayPuzzle}
+      isArchiveSession={archivePuzzleNo != null}
       onChangeTheme={setTheme}
     />
   );

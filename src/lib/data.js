@@ -379,6 +379,46 @@ function localSearch(q) {
   return prioritizeBaseForm(hits).slice(0, searchLimit(q));
 }
 
+// Loads the answer plant for an arbitrary puzzle number — used by the
+// Archive replay flow. Identical lookup logic to loadDailyPuzzle (prefer
+// the recorded daily_log pick, fall back to the deterministic rotation),
+// but never writes to daily_log since the puzzle is historical.
+export async function loadArchivedPuzzle(puzzleNo) {
+  if (puzzleNo == null) return null;
+  if (!isSupabaseConfigured) {
+    const plant = getDailyAnswer(puzzleNo, DAILY_PLANTS) || ANSWER_PLANT;
+    return { puzzleNo, plant, source: "local" };
+  }
+  try {
+    const storedId = await fetchStoredDailyPlantId(puzzleNo);
+    let chosenId = storedId;
+    if (!chosenId) {
+      const ids = await fetchPlantIds();
+      if (ids && ids.length) chosenId = ids[rotationIndex(puzzleNo, ids.length)];
+    }
+    if (!chosenId) {
+      const plant = getDailyAnswer(puzzleNo, DAILY_PLANTS) || ANSWER_PLANT;
+      return { puzzleNo, plant, source: "local" };
+    }
+    const data = await runWithFallback((sel) =>
+      supabase
+        .from("plants")
+        .select(sel)
+        .eq("id", chosenId)
+        .eq("plant_translations.language", PLANT_LANG)
+        .maybeSingle(),
+    );
+    if (!data) {
+      const plant = getDailyAnswer(puzzleNo, DAILY_PLANTS) || ANSWER_PLANT;
+      return { puzzleNo, plant, source: "local" };
+    }
+    return { puzzleNo, plant: rowToPlant(data), source: "supabase" };
+  } catch {
+    const plant = getDailyAnswer(puzzleNo, DAILY_PLANTS) || ANSWER_PLANT;
+    return { puzzleNo, plant, source: "local" };
+  }
+}
+
 export async function searchGuessable(q, { signal } = {}) {
   const trimmed = (q || "").trim();
   if (!trimmed) return [];
