@@ -1,10 +1,95 @@
+import { useEffect, useMemo, useState } from "react";
 import { tokens } from "../ui/tokens.js";
 import { Sheet } from "./Sheet.jsx";
-import { STATS } from "../../data/plants.js";
+import { loadStats, loadHistory } from "../../lib/storage.js";
+
+const HEATMAP_DAYS = 90;
+
+function buildHeatmap(history) {
+  // 90 cells, oldest → newest. Each cell either 0 (no play), 1..10 (won
+  // in N), or 'L' (lost). Anchored to today's UTC date.
+  const today = new Date();
+  const todayUtc = Date.UTC(
+    today.getUTCFullYear(),
+    today.getUTCMonth(),
+    today.getUTCDate(),
+  );
+  const byDay = new Map();
+  for (const h of history) {
+    if (!h.finishedAt) continue;
+    const d = new Date(h.finishedAt);
+    const key = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    byDay.set(key, h);
+  }
+  const cells = [];
+  for (let i = HEATMAP_DAYS - 1; i >= 0; i--) {
+    const dayKey = todayUtc - i * 86_400_000;
+    const entry = byDay.get(dayKey);
+    if (!entry) cells.push({ value: 0, label: "no play" });
+    else if (entry.outcome === "won")
+      cells.push({ value: entry.guessCount, label: `won in ${entry.guessCount}` });
+    else cells.push({ value: "L", label: "lost" });
+  }
+  return cells;
+}
 
 export function StatsScreen({ theme, onClose }) {
   const T = tokens(theme);
-  const maxDist = Math.max(...STATS.distribution);
+  const [stats, setStats] = useState(() => loadStats());
+  const [history, setHistory] = useState(() => loadHistory());
+
+  useEffect(() => {
+    setStats(loadStats());
+    setHistory(loadHistory());
+  }, []);
+
+  const winPct = stats.played > 0 ? Math.round((stats.won / stats.played) * 100) : 0;
+  const meanGuesses = useMemo(() => {
+    if (stats.won === 0) return 0;
+    let total = 0;
+    for (let i = 0; i < 10; i++) total += stats.distribution[i] * (i + 1);
+    return Math.round((total / stats.won) * 10) / 10;
+  }, [stats]);
+  const heatmap = useMemo(() => buildHeatmap(history), [history]);
+  const maxDist = Math.max(1, ...stats.distribution);
+
+  if (stats.played === 0) {
+    return (
+      <Sheet theme={theme} onClose={onClose} title="Statistics">
+        <div
+          style={{
+            border: `1px dashed ${T.border}`,
+            padding: "40px 28px",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              fontFamily: "var(--serif)",
+              fontSize: 22,
+              color: T.text,
+              marginBottom: 10,
+              lineHeight: 1.3,
+            }}
+          >
+            No games played yet.
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--sans)",
+              fontSize: 14,
+              color: T.muted,
+              maxWidth: 360,
+              margin: "0 auto",
+              lineHeight: 1.5,
+            }}
+          >
+            Finish today's puzzle and your streak, win rate, and history will start filling in here.
+          </div>
+        </div>
+      </Sheet>
+    );
+  }
 
   return (
     <Sheet theme={theme} onClose={onClose} title="Statistics">
@@ -39,7 +124,7 @@ export function StatsScreen({ theme, onClose }) {
               letterSpacing: "-0.03em",
             }}
           >
-            {STATS.currentStreak}
+            {stats.currentStreak}
           </div>
           <div
             style={{
@@ -50,13 +135,13 @@ export function StatsScreen({ theme, onClose }) {
               letterSpacing: "0.06em",
             }}
           >
-            DAYS · MAX {STATS.maxStreak}
+            DAYS · MAX {stats.maxStreak}
           </div>
         </div>
         <div style={{ display: "grid", gridTemplateRows: "repeat(3, 1fr)", gap: 8 }}>
-          <MiniStat label="PLAYED" value={STATS.played} theme={theme} />
-          <MiniStat label="WIN %" value={STATS.winPct} theme={theme} />
-          <MiniStat label="MEAN GUESSES" value={STATS.meanGuesses} theme={theme} />
+          <MiniStat label="PLAYED" value={stats.played} theme={theme} />
+          <MiniStat label="WIN %" value={winPct} theme={theme} />
+          <MiniStat label="MEAN GUESSES" value={meanGuesses || "—"} theme={theme} />
         </div>
       </div>
 
@@ -79,7 +164,7 @@ export function StatsScreen({ theme, onClose }) {
           GUESS DISTRIBUTION
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {STATS.distribution.map((v, i) => (
+          {stats.distribution.map((v, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span
                 style={{
@@ -104,8 +189,8 @@ export function StatsScreen({ theme, onClose }) {
                   style={{
                     width: `${(v / maxDist) * 100}%`,
                     height: "100%",
-                    background: i === 3 ? T.accent : i === 10 ? T.clay : T.muted,
-                    opacity: i === 3 ? 1 : 0.55,
+                    background: i === 10 ? T.clay : T.accent,
+                    opacity: v === 0 ? 0 : 0.85,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "flex-end",
@@ -117,7 +202,7 @@ export function StatsScreen({ theme, onClose }) {
                       fontFamily: "var(--mono)",
                       fontSize: 10,
                       fontWeight: 600,
-                      color: i === 3 ? "#0A0A0A" : T.text,
+                      color: i === 10 ? T.text : "#0A0A0A",
                     }}
                   >
                     {v || ""}
@@ -139,7 +224,7 @@ export function StatsScreen({ theme, onClose }) {
             marginBottom: 14,
           }}
         >
-          LAST 90 DAYS
+          LAST {HEATMAP_DAYS} DAYS
         </div>
         <div
           style={{
@@ -148,25 +233,18 @@ export function StatsScreen({ theme, onClose }) {
             gap: 4,
           }}
         >
-          {STATS.heatmap.map((v, i) => {
-            const colors = {
-              0: T.elevated,
-              1: `color-mix(in oklab, ${T.accent} 90%, ${T.bg})`,
-              2: `color-mix(in oklab, ${T.accent} 70%, ${T.bg})`,
-              3: `color-mix(in oklab, ${T.accent} 55%, ${T.bg})`,
-              4: `color-mix(in oklab, ${T.accent} 40%, ${T.bg})`,
-              5: `color-mix(in oklab, ${T.accent} 25%, ${T.bg})`,
-              6: T.clay,
-            };
+          {heatmap.map((cell, i) => {
+            let bg = T.elevated;
+            if (cell.value === "L") bg = T.clay;
+            else if (typeof cell.value === "number" && cell.value > 0) {
+              const intensity = Math.min(1, 1 - (cell.value - 1) / 10);
+              bg = `color-mix(in oklab, ${T.accent} ${Math.round(20 + intensity * 70)}%, ${T.bg})`;
+            }
             return (
               <div
                 key={i}
-                style={{
-                  aspectRatio: "1",
-                  background: colors[v],
-                  minHeight: 18,
-                }}
-                title={v === 0 ? "no play" : v === 6 ? "lost" : `won in ${v}`}
+                style={{ aspectRatio: "1", background: bg, minHeight: 18 }}
+                title={cell.label}
               />
             );
           })}

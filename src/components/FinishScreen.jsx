@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { tokens } from "./ui/tokens.js";
 import { MosaicLeaf } from "./ui/MosaicLeaf.jsx";
 import { MosaicStrip } from "./ui/MosaicStrip.jsx";
-import { TODAY_DISTRIBUTION } from "../data/plants.js";
 import { msUntilNextUtcMidnight } from "../engine/game.js";
+import { loadDistribution } from "../lib/data.js";
 import {
   AphyliaLinks,
   APHYLIA_HOME_URL,
@@ -22,8 +22,18 @@ export function FinishScreen({
   onPlayAgain,
 }) {
   const T = tokens(theme);
-  const dist = TODAY_DISTRIBUTION;
-  const maxBucket = Math.max(...dist);
+  const [dist, setDist] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    loadDistribution(puzzleNo).then((d) => {
+      if (!cancelled) setDist(d);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [puzzleNo]);
+  const maxBucket = dist ? Math.max(1, ...dist) : 1;
+  const totalPlayed = dist ? dist.reduce((a, b) => a + b, 0) : 0;
   const yourBucket = won ? guessCount - 1 : 10;
 
   return (
@@ -201,94 +211,98 @@ export function FinishScreen({
                   </div>
                 </Section>
 
-                <Section
-                  label={`THE WORLD · ${dist.reduce((a, b) => a + b, 0).toLocaleString()} PLAYED`}
-                  theme={theme}
-                >
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(11, 1fr)",
-                      gap: 4,
-                      alignItems: "end",
-                      height: 80,
-                      marginTop: 10,
-                    }}
+                {dist && totalPlayed > 0 && (
+                  <Section
+                    label={`THE WORLD · ${totalPlayed.toLocaleString()} PLAYED`}
+                    theme={theme}
                   >
-                    {dist.map((v, i) => (
-                      <div
-                        key={i}
-                        title={`${i < 10 ? `In ${i + 1}` : "Lost"}: ${v}`}
-                        style={{
-                          height: `${(v / maxBucket) * 100}%`,
-                          background:
-                            i === yourBucket
-                              ? won
-                                ? T.accent
-                                : T.warm
-                              : i === 10
-                                ? T.clay
-                                : T.muted,
-                          opacity: i === yourBucket ? 1 : 0.5,
-                          minHeight: 2,
-                        }}
-                      />
-                    ))}
-                  </div>
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(11, 1fr)",
-                      gap: 4,
-                      fontFamily: "var(--mono)",
-                      fontSize: 9,
-                      color: T.subtle,
-                      marginTop: 6,
-                      letterSpacing: "0.05em",
-                      textAlign: "center",
-                    }}
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, "✗"].map((l, i) => (
-                      <span
-                        key={l}
-                        style={{
-                          color: i === yourBucket ? (won ? T.accent : T.warm) : T.subtle,
-                          fontWeight: i === yourBucket ? 600 : 400,
-                        }}
-                      >
-                        {l}
-                      </span>
-                    ))}
-                  </div>
-                </Section>
-
-                <Section label="COMMON MISGUESS" theme={theme}>
-                  <div
-                    style={{
-                      marginTop: 8,
-                      fontFamily: "var(--sans)",
-                      fontSize: 15,
-                      color: T.text,
-                      lineHeight: 1.55,
-                    }}
-                  >
-                    <span
+                    <div
                       style={{
-                        color: T.warm,
-                        fontFamily: "var(--mono)",
-                        fontSize: 14,
-                        fontWeight: 600,
+                        display: "grid",
+                        gridTemplateColumns: "repeat(11, 1fr)",
+                        gap: 4,
+                        alignItems: "end",
+                        height: 80,
+                        marginTop: 10,
                       }}
                     >
-                      {plant.commonMisguess.percent}%
-                    </span>{" "}
-                    of players guessed{" "}
-                    <em style={{ fontFamily: "var(--serif)", fontStyle: "italic" }}>
-                      {plant.commonMisguess.name}
-                    </em>{" "}
-                    first.
-                  </div>
-                </Section>
+                      {dist.map((v, i) => (
+                        <div
+                          key={i}
+                          title={`${i < 10 ? `In ${i + 1}` : "Lost"}: ${v}`}
+                          style={{
+                            height: `${(v / maxBucket) * 100}%`,
+                            background:
+                              i === yourBucket
+                                ? won
+                                  ? T.accent
+                                  : T.warm
+                                : i === 10
+                                  ? T.clay
+                                  : T.muted,
+                            opacity: i === yourBucket ? 1 : 0.5,
+                            minHeight: 2,
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(11, 1fr)",
+                        gap: 4,
+                        fontFamily: "var(--mono)",
+                        fontSize: 9,
+                        color: T.subtle,
+                        marginTop: 6,
+                        letterSpacing: "0.05em",
+                        textAlign: "center",
+                      }}
+                    >
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, "✗"].map((l, i) => (
+                        <span
+                          key={l}
+                          style={{
+                            color: i === yourBucket ? (won ? T.accent : T.warm) : T.subtle,
+                            fontWeight: i === yourBucket ? 600 : 400,
+                          }}
+                        >
+                          {l}
+                        </span>
+                      ))}
+                    </div>
+                  </Section>
+                )}
+
+                {plant.commonMisguess && plant.commonMisguess.name && (
+                  <Section label="COMMON MISGUESS" theme={theme}>
+                    <div
+                      style={{
+                        marginTop: 8,
+                        fontFamily: "var(--sans)",
+                        fontSize: 15,
+                        color: T.text,
+                        lineHeight: 1.55,
+                      }}
+                    >
+                      <span
+                        style={{
+                          color: T.warm,
+                          fontFamily: "var(--mono)",
+                          fontSize: 14,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {plant.commonMisguess.percent}%
+                      </span>{" "}
+                      of players guessed{" "}
+                      <em style={{ fontFamily: "var(--serif)", fontStyle: "italic" }}>
+                        {plant.commonMisguess.name}
+                      </em>{" "}
+                      first.
+                    </div>
+                  </Section>
+                )}
               </>
             )}
 

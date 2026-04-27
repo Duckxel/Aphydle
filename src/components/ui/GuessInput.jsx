@@ -1,28 +1,51 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { tokens } from "./tokens.js";
-import { GUESSABLE } from "../../data/plants.js";
+import { searchGuessable } from "../../lib/data.js";
+
+const SEARCH_DEBOUNCE_MS = 180;
 
 export function GuessInput({ theme, onSubmit, disabled, attemptsLeft }) {
   const T = tokens(theme);
   const [q, setQ] = useState("");
+  const [matches, setMatches] = useState([]);
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef(null);
+  const abortRef = useRef(null);
 
-  const matches = useMemo(() => {
-    if (!q.trim()) return [];
-    const lower = q.toLowerCase();
-    return GUESSABLE.filter((p) => p.name.toLowerCase().includes(lower)).slice(0, 6);
-  }, [q]);
-
+  // Debounced suggestion lookup. Each keystroke schedules a search and
+  // cancels any in-flight request, so we only ever render the latest
+  // result and never thrash Supabase.
   useEffect(() => {
     setActiveIdx(0);
+    const trimmed = q.trim();
+    if (!trimmed) {
+      setMatches([]);
+      return undefined;
+    }
+    if (abortRef.current) abortRef.current.abort();
+    const controller =
+      typeof AbortController !== "undefined" ? new AbortController() : null;
+    abortRef.current = controller;
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      const results = await searchGuessable(trimmed, {
+        signal: controller?.signal,
+      });
+      if (!cancelled) setMatches(results);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+      controller?.abort();
+    };
   }, [q]);
 
   function submit(plant) {
     if (!plant || disabled) return;
     onSubmit(plant);
     setQ("");
+    setMatches([]);
     setOpen(false);
   }
 

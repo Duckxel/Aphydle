@@ -1,4 +1,9 @@
-// Aphydle plant catalog. In production these can come from Supabase.
+// Aphydle plant catalog — offline fallback.
+//
+// In production these come from Supabase (`aphydle.plants`,
+// `aphydle.guessable_plants`, `aphydle.daily_puzzles`). The constants
+// below are only used when the Supabase env vars aren't configured or
+// the request fails — see src/lib/data.js for the actual loaders.
 
 // DAILY_PLANTS — answer-side records for the daily rotation. Each id must
 // also exist in GUESSABLE so the autocomplete includes the answer.
@@ -186,31 +191,3 @@ export const COMPARE_COLUMNS = [
   { key: "nativeRegion", label: "Native to" },
   { key: "toxicity", label: "Toxicity" },
 ];
-
-export const ARCHIVE = [
-  { no: 142, date: "WED 26 APR", name: "Monstera deliciosa", img: ANSWER_PLANT.imageUrl, you: "today", winRate: null },
-  { no: 141, date: "TUE 25 APR", name: "Ficus lyrata", img: "https://images.unsplash.com/photo-1581793745862-99fde7fa73ce?w=800&q=80&auto=format&fit=crop", you: "won", guesses: 3, winRate: 78 },
-  { no: 140, date: "MON 24 APR", name: "Pilea peperomioides", img: "https://images.unsplash.com/photo-1604762512526-b7068fe1eb44?w=800&q=80&auto=format&fit=crop", you: "won", guesses: 5, winRate: 64 },
-  { no: 139, date: "SUN 23 APR", name: "Bird of Paradise", img: "https://images.unsplash.com/photo-1597055181449-b3974c50d6f0?w=800&q=80&auto=format&fit=crop", you: "won", guesses: 4, winRate: 71 },
-  { no: 138, date: "SAT 22 APR", name: "Welwitschia mirabilis", img: "https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=800&q=80&auto=format&fit=crop", you: "lost", guesses: 10, winRate: 3 },
-  { no: 137, date: "FRI 21 APR", name: "Calathea orbifolia", img: "https://images.unsplash.com/photo-1620503374956-c942862f0372?w=800&q=80&auto=format&fit=crop", you: "won", guesses: 6, winRate: 52 },
-  { no: 136, date: "THU 20 APR", name: "Snake Plant", img: "https://images.unsplash.com/photo-1593482892290-f54927ae1bb6?w=800&q=80&auto=format&fit=crop", you: "won", guesses: 2, winRate: 88 },
-  { no: 135, date: "WED 19 APR", name: "ZZ Plant", img: "https://images.unsplash.com/photo-1632207691143-643e2a9a9361?w=800&q=80&auto=format&fit=crop", you: "won", guesses: 3, winRate: 81 },
-];
-
-export const TODAY_DISTRIBUTION = [12, 84, 312, 641, 783, 580, 327, 198, 102, 58, 30];
-
-export const STATS = {
-  played: 142,
-  won: 118,
-  winPct: 83,
-  currentStreak: 12,
-  maxStreak: 31,
-  meanGuesses: 4.6,
-  distribution: [4, 12, 28, 35, 22, 11, 4, 1, 1, 0, 24],
-  heatmap: Array.from({ length: 90 }, (_, i) => {
-    if (i % 17 === 0) return 0;
-    if (i % 23 === 0) return 6;
-    return 1 + ((i * 7) % 5);
-  }),
-};
