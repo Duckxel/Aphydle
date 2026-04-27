@@ -79,17 +79,25 @@ export async function trackAttempt({ puzzleNo, attemptNo, plantId, isCorrect }) 
   if (puzzleNo == null || !attemptNo) return;
   const anonId = getDailyAnonId();
   if (!anonId) return;
+  // Anon ids rotate every UTC day, so (anon_id, puzzle_no) already pins the
+  // row to a single player-day-puzzle. Upsert on that key so each subsequent
+  // attempt overwrites the same row with the latest count + outcome instead
+  // of stacking up one row per attempt.
   try {
     await aphSchema()
       .from("attempts")
-      .insert({
-        anon_id: anonId,
-        puzzle_no: puzzleNo,
-        attempt_no: attemptNo,
-        guess_plant_id: plantId ?? null,
-        is_correct: !!isCorrect,
-      });
+      .upsert(
+        {
+          anon_id: anonId,
+          puzzle_no: puzzleNo,
+          attempt_no: attemptNo,
+          guess_plant_id: plantId ?? null,
+          is_correct: !!isCorrect,
+          attempted_at: new Date().toISOString(),
+        },
+        { onConflict: "anon_id,puzzle_no" },
+      );
   } catch {
-    // unique (anon_id, puzzle_no, attempt_no) collision or network — ignore
+    // network or RLS — ignore, analytics is best-effort
   }
 }
