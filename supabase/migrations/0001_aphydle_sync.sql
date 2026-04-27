@@ -128,3 +128,104 @@ create policy "insert today's daily log"
     with check (puzzle_date = (now() at time zone 'utc')::date);
 
 grant select, insert on aphydle.daily_log to anon, authenticated;
+
+-- ── scheduled daily-log writer ─────────────────────────────────────────────
+-- pg_cron backstop so today's row exists before any client refreshes. The
+-- runtime still inserts on first visit (RLS-gated), but if no one opens the
+-- app right after UTC midnight the table would otherwise stay empty until
+-- someone does. This function picks the rotation plant for the current UTC
+-- date and inserts it server-side; SECURITY DEFINER + ownership by the
+-- migration role bypasses the daily_log RLS policy.
+--
+-- Rotation mirrors src/lib/data.js exactly:
+--   pool   = public.plants with at least one populated public.plant_images.link
+--          ordered by plants.id ascending (stable across deploys)
+--   epoch  = 2026-04-27 (matches PUZZLE_EPOCH_UTC in src/engine/game.js)
+--   index  = ((puzzle_no - 1) mod pool_size + pool_size) mod pool_size
+--
+-- On Supabase Cloud pg_cron must be enabled once via the dashboard
+-- (Database → Extensions → pg_cron); this CREATE EXTENSION is a no-op when
+-- it's already on. Self-hosted projects get it from this migration directly.
+create extension if not exists pg_cron;
+
+create or replace function aphydle.ensure_daily_log()
+returns aphydle.daily_log
+language plpgsql
+security definer
+set search_path = aphydle, public, pg_temp
+as $$
+declare
+    v_today     date    := (now() at time zone 'utc')::date;
+    v_epoch     date    := date '2026-04-27';
+    v_puzzle_no integer := (v_today - v_epoch) + 1;
+    v_pool_size integer;
+    v_plant_id  text;
+    v_row       aphydle.daily_log;
+begin
+    -- Already logged for this puzzle? Return the existing row unchanged so
+    -- repeated calls (cron retries, manual invocations) are idempotent.
+    select * into v_row
+    from aphydle.daily_log
+    where puzzle_no = v_puzzle_no;
+    if found then
+        return v_row;
+    end if;
+
+    -- Pool size: plants with at least one usable image. Matches the
+    -- `plant_images!inner(link)` filter the client applies.
+    select count(*) into v_pool_size
+    from public.plants p
+    where exists (
+        select 1 from public.plant_images pi
+        where pi.plant_id = p.id and pi.link is not null
+    );
+
+    if v_pool_size is null or v_pool_size = 0 then
+        return null;
+    end if;
+
+    -- Deterministic rotation pick. OFFSET over the same ordered pool the
+    -- client uses guarantees the cron and the runtime agree on the answer.
+    select p.id::text into v_plant_id
+    from public.plants p
+    where exists (
+        select 1 from public.plant_images pi
+        where pi.plant_id = p.id and pi.link is not null
+    )
+    order by p.id
+    offset (((v_puzzle_no - 1) % v_pool_size) + v_pool_size) % v_pool_size
+    limit 1;
+
+    if v_plant_id is null then
+        return null;
+    end if;
+
+    insert into aphydle.daily_log (puzzle_no, puzzle_date, plant_id)
+    values (v_puzzle_no, v_today, v_plant_id)
+    on conflict (puzzle_no) do nothing
+    returning * into v_row;
+
+    return v_row;
+end;
+$$;
+
+-- Lock the function down: only the owner (and pg_cron, which runs as the
+-- database superuser) should invoke it. anon/authenticated keep using the
+-- RLS-gated direct insert path.
+revoke all on function aphydle.ensure_daily_log() from public;
+
+-- Idempotent schedule: drop the old entry if a previous migration created
+-- it, then (re)register at 00:05 UTC daily. The 5-minute offset gives the
+-- date boundary a small grace window so the function never lands on the
+-- exact tick where (now() at time zone 'utc')::date is still resolving.
+do $$
+begin
+    if exists (select 1 from cron.job where jobname = 'aphydle_ensure_daily_log') then
+        perform cron.unschedule('aphydle_ensure_daily_log');
+    end if;
+    perform cron.schedule(
+        'aphydle_ensure_daily_log',
+        '5 0 * * *',
+        $cron$select aphydle.ensure_daily_log();$cron$
+    );
+end $$;

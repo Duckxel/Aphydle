@@ -38,6 +38,15 @@ One-off / manual: open the Supabase SQL editor and paste the contents of
 | `aphydle.puzzle_results`        | Per-(puzzle, player) outcome rows with RLS so users only insert their own.|
 | `aphydle.daily_distribution`    | View aggregating `puzzle_results` into the histogram on the finish screen.|
 | `aphydle.daily_log`             | Append-only record of which `plant_id` was served on which puzzle day.    |
+| `aphydle.ensure_daily_log()`    | SECURITY DEFINER fn that picks the rotation plant for today and inserts it; bypasses RLS. |
+| `cron` job `aphydle_ensure_daily_log` | pg_cron schedule (`5 0 * * *` UTC) that calls `ensure_daily_log()` so today's row exists before any client visits. |
+
+> **pg_cron note:** on Supabase Cloud the `pg_cron` extension must be
+> enabled once via the dashboard (Database → Extensions). This migration's
+> `create extension if not exists pg_cron` is a no-op when it's already on,
+> but it can't enable the extension on a project where the dashboard
+> toggle is off. Self-hosted Postgres installs get it from the migration
+> directly.
 
 ## What the sync drops (if present from older migrations)
 
