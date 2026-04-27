@@ -18,14 +18,30 @@ export function AphyliaBackLink({ theme }) {
       href={APHYLIA_HOST_URL}
       rel="noopener"
       style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        height: 32,
+        padding: "0 12px",
+        background: "transparent",
+        border: `1px solid ${T.border}`,
+        color: T.muted,
         fontFamily: "var(--mono)",
         fontSize: 10,
-        letterSpacing: "0.12em",
-        color: T.muted,
+        letterSpacing: "0.14em",
+        fontWeight: 600,
         textDecoration: "none",
+        cursor: "pointer",
+        transition: "color 0.15s, border-color 0.15s",
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.color = T.text)}
-      onMouseLeave={(e) => (e.currentTarget.style.color = T.muted)}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.color = T.accent;
+        e.currentTarget.style.borderColor = T.accent;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.color = T.muted;
+        e.currentTarget.style.borderColor = T.border;
+      }}
     >
       ← BACK TO APHYLIA
     </a>

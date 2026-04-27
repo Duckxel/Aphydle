@@ -10,7 +10,7 @@ import { COMPARE_COLUMNS } from "../data/plants.js";
 import { StatsScreen } from "./screens/StatsScreen.jsx";
 import { ArchiveScreen } from "./screens/ArchiveScreen.jsx";
 import { HowToScreen } from "./screens/HowToScreen.jsx";
-import { AphyliaPill, AphyliaBackLink } from "./AphyliaLink.jsx";
+import { AphyliaPill, AphyliaBackLink, APHYLIA_HOST_URL } from "./AphyliaLink.jsx";
 
 const LEVEL_LADDER = [7, 6, 5, 4, 4, 3, 2, 1, 0, 0, 0];
 
@@ -74,8 +74,7 @@ export function GameScreen({
           {dateLabel} · No. {puzzleNo}
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <AphyliaBackLink theme={theme} />
-          <AphyliaPill theme={theme} />
+          {APHYLIA_HOST_URL ? <AphyliaBackLink theme={theme} /> : <AphyliaPill theme={theme} />}
           <ThemeToggle theme={theme} onChange={onChangeTheme} />
           <NavBtn theme={theme} label="?" onClick={() => setOverlay("how")} title="How to play" />
           <NavBtn theme={theme} label="◫" onClick={() => setOverlay("archive")} title="Archive" />
