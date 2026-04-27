@@ -7,23 +7,36 @@ function toItems(v) {
   return [v];
 }
 
+// Trim noisy descriptive tails so a single text[] element doesn't blow up the
+// cell. DB rows often look like "Worldwide (cosmopolitan distribution;
+// native on most continents except Antarctica)" — we want just "Worldwide".
+function shortLabel(s) {
+  if (s == null) return "";
+  return String(s)
+    .split(/[;:—]|\s-\s/)[0]
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function normalize(s) {
-  return String(s).trim().toLowerCase();
+  return shortLabel(s).toLowerCase();
 }
 
 // Compare list-or-scalar attributes any-of: if any guess element matches any
-// answer element, surface only the matches; otherwise just show the first
-// guess element so long lists don't blow up the cell.
+// answer element (after stripping parenthetical/secondary text), surface only
+// the matches; otherwise just show the first guess element so long lists
+// don't blow up the cell.
 function compareValues(guessVal, answerVal) {
   const guessItems = toItems(guessVal);
   const answerItems = toItems(answerVal);
   if (!guessItems.length || !answerItems.length) {
-    return { match: false, items: guessItems.slice(0, 1) };
+    return { match: false, items: guessItems.slice(0, 1).map(shortLabel) };
   }
   const answerSet = new Set(answerItems.map(normalize));
   const matches = guessItems.filter((g) => answerSet.has(normalize(g)));
-  if (matches.length) return { match: true, items: matches };
-  return { match: false, items: guessItems.slice(0, 1) };
+  if (matches.length) return { match: true, items: [shortLabel(matches[0])] };
+  return { match: false, items: [shortLabel(guessItems[0])] };
 }
 
 export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
@@ -37,14 +50,14 @@ export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
       className="aph-guess-row"
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(8, minmax(0, 1fr))",
+        gridTemplateColumns: "minmax(140px, 1.8fr) repeat(7, minmax(0, 1fr))",
         gap: 4,
         animation: isLatest ? "aphSlideUp 0.4s cubic-bezier(0.16,1,0.3,1)" : "none",
         marginBottom: 4,
       }}
     >
       <Cell theme={theme} isPlantName isMatch={isAnswer} accent={accent}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
           <div
             style={{
               fontFamily: "var(--sans)",
@@ -54,23 +67,28 @@ export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
               textDecoration: isAnswer ? "none" : "line-through",
               textDecorationColor: isAnswer ? "transparent" : `${T.muted}80`,
               lineHeight: 1.2,
+              wordBreak: "break-word",
             }}
           >
             {guess.name}
-            {guess.variety && (
-              <span
-                style={{
-                  fontStyle: "italic",
-                  fontWeight: 400,
-                  color: isAnswer ? accent : T.muted,
-                  marginLeft: 6,
-                  fontSize: 12,
-                }}
-              >
-                {guess.variety}
-              </span>
-            )}
           </div>
+          {guess.variety && (
+            <div
+              style={{
+                fontFamily: "var(--sans)",
+                fontStyle: "italic",
+                fontWeight: 400,
+                fontSize: 12,
+                color: isAnswer ? accent : T.muted,
+                textDecoration: isAnswer ? "none" : "line-through",
+                textDecorationColor: isAnswer ? "transparent" : `${T.muted}80`,
+                lineHeight: 1.2,
+                wordBreak: "break-word",
+              }}
+            >
+              {guess.variety}
+            </div>
+          )}
           {isAnswer && (
             <div
               style={{
@@ -147,7 +165,7 @@ export function GuessRowHeader({ theme }) {
       className="aph-guess-row-header"
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(8, minmax(0, 1fr))",
+        gridTemplateColumns: "minmax(140px, 1.8fr) repeat(7, minmax(0, 1fr))",
         gap: 4,
         marginBottom: 6,
         paddingLeft: 12,
