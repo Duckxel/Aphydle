@@ -1,8 +1,13 @@
-// Per-day game state persistence. Stored in localStorage, namespaced by
-// puzzle number so a new day starts with a clean state automatically.
+// Per-day game state, cumulative stats, and play history persistence.
+// Stored in localStorage, namespaced by puzzle number where appropriate
+// so a new day starts with a clean slate automatically.
 
-const KEY = "aphydle:state:v1";
+const STATE_KEY = "aphydle:state:v1";
 const STATS_KEY = "aphydle:stats:v1";
+const HISTORY_KEY = "aphydle:history:v1";
+const INSTALL_KEY = "aphydle:install:v1";
+
+const HISTORY_MAX = 365;
 
 function safeWindow() {
   return typeof window !== "undefined" && window.localStorage ? window : null;
@@ -12,7 +17,7 @@ export function loadGameState(puzzleNo) {
   const w = safeWindow();
   if (!w) return null;
   try {
-    const raw = w.localStorage.getItem(KEY);
+    const raw = w.localStorage.getItem(STATE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || parsed.puzzleNo !== puzzleNo) return null;
@@ -30,7 +35,7 @@ export function saveGameState(puzzleNo, state) {
   if (!w) return;
   try {
     w.localStorage.setItem(
-      KEY,
+      STATE_KEY,
       JSON.stringify({
         puzzleNo,
         guesses: state.guesses,
@@ -47,13 +52,31 @@ export function clearGameState() {
   const w = safeWindow();
   if (!w) return;
   try {
-    w.localStorage.removeItem(KEY);
+    w.localStorage.removeItem(STATE_KEY);
   } catch {
     // ignore
   }
 }
 
-// Cumulative stats across days (recorded at game completion).
+// Anchors fallback puzzle numbering. The first time the app runs without
+// Supabase configured we record today's UTC date — so the player sees
+// "No. 1" on their first puzzle, "No. 2" the next day, and so on.
+export function getInstallEpoch() {
+  const w = safeWindow();
+  if (!w) return null;
+  try {
+    let v = w.localStorage.getItem(INSTALL_KEY);
+    if (!v) {
+      const today = new Date();
+      v = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, "0")}-${String(today.getUTCDate()).padStart(2, "0")}`;
+      w.localStorage.setItem(INSTALL_KEY, v);
+    }
+    return v;
+  } catch {
+    return null;
+  }
+}
+
 const DEFAULT_STATS = {
   played: 0,
   won: 0,
@@ -71,13 +94,45 @@ export function loadStats() {
     const raw = w.localStorage.getItem(STATS_KEY);
     if (!raw) return { ...DEFAULT_STATS };
     const parsed = JSON.parse(raw);
-    return { ...DEFAULT_STATS, ...parsed };
+    return {
+      ...DEFAULT_STATS,
+      ...parsed,
+      distribution: Array.isArray(parsed.distribution)
+        ? parsed.distribution.concat(DEFAULT_STATS.distribution).slice(0, 11)
+        : [...DEFAULT_STATS.distribution],
+    };
   } catch {
     return { ...DEFAULT_STATS };
   }
 }
 
-export function recordResult(puzzleNo, outcome, guessCount) {
+export function loadHistory() {
+  const w = safeWindow();
+  if (!w) return [];
+  try {
+    const raw = w.localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(entries) {
+  const w = safeWindow();
+  if (!w) return;
+  try {
+    w.localStorage.setItem(
+      HISTORY_KEY,
+      JSON.stringify(entries.slice(-HISTORY_MAX)),
+    );
+  } catch {
+    // ignore
+  }
+}
+
+export function recordResult(puzzleNo, outcome, guessCount, plant = null) {
   const w = safeWindow();
   if (!w) return loadStats();
   const stats = loadStats();
@@ -100,5 +155,20 @@ export function recordResult(puzzleNo, outcome, guessCount) {
   } catch {
     // ignore
   }
+
+  const history = loadHistory();
+  if (!history.some((h) => h.puzzleNo === puzzleNo)) {
+    history.push({
+      puzzleNo,
+      outcome,
+      guessCount,
+      plantId: plant?.id || null,
+      plantName: plant?.commonName || null,
+      imageUrl: plant?.imageUrl || null,
+      finishedAt: Date.now(),
+    });
+    saveHistory(history);
+  }
+
   return stats;
 }

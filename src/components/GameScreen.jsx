@@ -214,7 +214,13 @@ export function GameScreen({
       </div>
 
       {overlay === "stats" && <StatsScreen theme={theme} onClose={() => setOverlay(null)} />}
-      {overlay === "archive" && <ArchiveScreen theme={theme} onClose={() => setOverlay(null)} />}
+      {overlay === "archive" && (
+        <ArchiveScreen
+          theme={theme}
+          onClose={() => setOverlay(null)}
+          currentPuzzleNo={puzzleNo}
+        />
+      )}
       {overlay === "how" && <HowToScreen theme={theme} onClose={() => setOverlay(null)} />}
     </div>
   );

@@ -14,9 +14,12 @@ function utcDayIndex(date) {
 }
 
 // Days since the epoch, +1 so the first day is puzzle #1 (not #0).
-export function getPuzzleNumber(date = new Date()) {
+// `epochUtc` is overridable so the local fallback can anchor numbering to
+// a per-install date — that way a brand-new install sees "No. 1" on day one
+// instead of a synthetic large number derived from a hardcoded epoch.
+export function getPuzzleNumber(date = new Date(), epochUtc = PUZZLE_EPOCH_UTC) {
   const today = utcDayIndex(date);
-  const epoch = utcDayIndex(new Date(`${PUZZLE_EPOCH_UTC}T00:00:00Z`));
+  const epoch = utcDayIndex(new Date(`${epochUtc}T00:00:00Z`));
   return today - epoch + 1;
 }
 
