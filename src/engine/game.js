@@ -2,7 +2,7 @@
 
 // Day 1 = puzzle #1. Anchored to UTC so every player worldwide gets the
 // same plant on the same calendar day. Bumping this re-aligns the rotation.
-export const PUZZLE_EPOCH_UTC = "2026-01-01";
+export const PUZZLE_EPOCH_UTC = "2026-04-27";
 
 const MS_PER_DAY = 86_400_000;
 
