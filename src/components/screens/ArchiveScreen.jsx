@@ -2,8 +2,26 @@ import { useEffect, useMemo, useState } from "react";
 import { tokens } from "../ui/tokens.js";
 import { Sheet } from "./Sheet.jsx";
 import { loadHistory } from "../../lib/storage.js";
-import { loadRecentPuzzles } from "../../lib/data.js";
+import {
+  loadRecentPuzzles,
+  loadDailyPuzzleLog,
+  formatDailyLogText,
+} from "../../lib/data.js";
 import { formatPuzzleDate } from "../../engine/game.js";
+
+async function downloadDailyLog() {
+  const entries = await loadDailyPuzzleLog();
+  const text = formatDailyLogText(entries || []);
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "aphydle-daily-log.txt";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 function formatIsoDate(iso) {
   if (!iso) return "";
@@ -58,15 +76,42 @@ export function ArchiveScreen({ theme, onClose, currentPuzzleNo }) {
     <Sheet theme={theme} onClose={onClose} title="Archive">
       <div
         style={{
-          fontFamily: "var(--sans)",
-          fontSize: 14,
-          color: T.muted,
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 16,
           marginBottom: 24,
-          lineHeight: 1.5,
-          maxWidth: 380,
+          flexWrap: "wrap",
         }}
       >
-        Past plants you've played. Daily puzzles you missed appear once Supabase publishes them.
+        <div
+          style={{
+            fontFamily: "var(--sans)",
+            fontSize: 14,
+            color: T.muted,
+            lineHeight: 1.5,
+            maxWidth: 380,
+          }}
+        >
+          Past plants you've played. Daily puzzles you missed appear once Supabase publishes them.
+        </div>
+        <button
+          onClick={downloadDailyLog}
+          style={{
+            padding: "8px 14px",
+            background: "transparent",
+            border: `1px solid ${T.border}`,
+            color: T.text,
+            fontFamily: "var(--mono)",
+            fontSize: 10,
+            letterSpacing: "0.14em",
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+          }}
+          title="Download the full server-side log of daily plant picks"
+        >
+          DOWNLOAD LOG ↓
+        </button>
       </div>
       {entries.length === 0 ? (
         <div

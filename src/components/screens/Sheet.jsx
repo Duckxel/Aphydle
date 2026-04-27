@@ -25,6 +25,7 @@ export function Sheet({ theme, onClose, title, children }) {
         }}
       >
         <div
+          className="aph-sheet-header"
           style={{
             maxWidth: 720,
             margin: "0 auto",
@@ -35,7 +36,7 @@ export function Sheet({ theme, onClose, title, children }) {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <MosaicLeaf size={18} theme={theme} />
+            <MosaicLeaf size={28} theme={theme} />
             <span
               style={{
                 fontFamily: "var(--mono)",
@@ -63,7 +64,7 @@ export function Sheet({ theme, onClose, title, children }) {
           </button>
         </div>
       </div>
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 32px 80px" }}>
+      <div className="aph-sheet-body" style={{ maxWidth: 720, margin: "0 auto", padding: "40px 32px 80px" }}>
         {children}
       </div>
     </div>

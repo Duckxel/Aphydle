@@ -25,7 +25,11 @@ import {
   ANSWER_PLANT,
 } from "../data/plants.js";
 import { getPuzzleNumber, getDailyAnswer } from "../engine/game.js";
-import { getInstallEpoch } from "./storage.js";
+import {
+  getInstallEpoch,
+  loadLocalDailyLog,
+  appendLocalDailyLog,
+} from "./storage.js";
 
 // Aphydle-specific tables (puzzle_results, daily_distribution) live in a
 // separate `aphydle` schema. When that schema isn't exposed in the project,
@@ -191,7 +195,92 @@ function localDailyPuzzle(now) {
   const epoch = getInstallEpoch() || todayDateUtc(now);
   const puzzleNo = getPuzzleNumber(now, epoch);
   const plant = getDailyAnswer(puzzleNo, DAILY_PLANTS) || ANSWER_PLANT;
+  appendLocalDailyLog({
+    puzzleNo,
+    puzzleDate: todayDateUtc(now),
+    plantId: plant?.id,
+  });
   return { puzzleNo, plant, source: "local" };
+}
+
+// Read today's stored pick from the server log, if any. Returns the plant
+// id we previously recorded for `puzzleNo`, or null when nothing has been
+// logged yet (or Supabase isn't reachable). Used so a redeploy / rotation
+// change can never reshuffle an already-played day.
+async function fetchStoredDailyPlantId(puzzleNo) {
+  if (!isSupabaseConfigured) return null;
+  try {
+    const { data, error } = await aph()
+      .from("daily_log")
+      .select("plant_id")
+      .eq("puzzle_no", puzzleNo)
+      .maybeSingle();
+    if (error || !data) return null;
+    return data.plant_id || null;
+  } catch {
+    return null;
+  }
+}
+
+// Best-effort write of today's pick to the server log. The RLS policy only
+// allows inserts when puzzle_date is today's UTC date, and the primary key
+// on puzzle_no makes it idempotent — duplicate inserts simply fail and are
+// swallowed here. Always mirrors locally so the trace survives offline.
+async function recordDailyPick(puzzleNo, dateUtc, plantId) {
+  appendLocalDailyLog({ puzzleNo, puzzleDate: dateUtc, plantId });
+  if (!isSupabaseConfigured || !plantId) return;
+  try {
+    await aph()
+      .from("daily_log")
+      .insert({ puzzle_no: puzzleNo, puzzle_date: dateUtc, plant_id: plantId });
+  } catch {
+    // ignore — already logged or RLS rejected (e.g. clock skew)
+  }
+}
+
+// Full append-only log of every daily pick, ordered by puzzle number.
+// Prefers the Supabase log; falls back to the localStorage mirror so the
+// archive view still shows something on a fresh install with no backend.
+export async function loadDailyPuzzleLog(limit = 1000) {
+  if (isSupabaseConfigured) {
+    try {
+      const { data, error } = await aph()
+        .from("daily_log")
+        .select("puzzle_no, puzzle_date, plant_id, recorded_at")
+        .order("puzzle_no", { ascending: true })
+        .limit(limit);
+      if (!error && Array.isArray(data) && data.length > 0) {
+        return data.map((r) => ({
+          puzzleNo: r.puzzle_no,
+          puzzleDate: r.puzzle_date,
+          plantId: r.plant_id,
+          recordedAt: r.recorded_at || null,
+          source: "supabase",
+        }));
+      }
+    } catch {
+      // fall through to local mirror
+    }
+  }
+  return loadLocalDailyLog().map((e) => ({ ...e, source: "local" }));
+}
+
+// Plain-text serialisation for the "download trace" action. One row per
+// puzzle, columns aligned for human reading.
+export function formatDailyLogText(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return "# Aphydle daily plant log\n# (empty)\n";
+  }
+  const header = "# Aphydle daily plant log\n# puzzle_no\tpuzzle_date\tplant_id\n";
+  const rows = entries
+    .slice()
+    .sort((a, b) => a.puzzleNo - b.puzzleNo)
+    .map(
+      (e) =>
+        `${String(e.puzzleNo).padStart(4, "0")}\t${e.puzzleDate || "         "}\t${e.plantId}`,
+    )
+    .join("\n");
+  return `${header}${rows}\n`;
 }
 
 // Fetches the stable list of plant ids the daily rotation indexes into.
@@ -223,7 +312,14 @@ export async function loadDailyPuzzle(now = new Date()) {
     if (!ids) return localDailyPuzzle(now);
 
     const puzzleNo = getPuzzleNumber(now);
-    const chosenId = ids[rotationIndex(puzzleNo, ids.length)];
+    const dateUtc = todayDateUtc(now);
+
+    // Prefer the previously-recorded pick so changes to the rotation pool
+    // (re-orderings, additions, deletions) never reshuffle a played day.
+    // Fall back to the deterministic rotation only when nothing is logged
+    // yet — and stamp the result so subsequent loads stay stable.
+    const storedId = await fetchStoredDailyPlantId(puzzleNo);
+    const chosenId = storedId || ids[rotationIndex(puzzleNo, ids.length)];
 
     const data = await runWithFallback((sel) =>
       supabase
@@ -234,6 +330,8 @@ export async function loadDailyPuzzle(now = new Date()) {
         .maybeSingle(),
     );
     if (!data) return localDailyPuzzle(now);
+
+    if (!storedId) await recordDailyPick(puzzleNo, dateUtc, chosenId);
 
     return {
       puzzleNo,
