@@ -2,18 +2,149 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Aphydle — Daily Plant Guess</title>
-    <meta name="description" content="Aphydle: a daily plant guessing game. One plant, ten guesses." />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0F0F0F" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#E8E2D0" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <title>Aphydle — Daily Plant Guessing Game</title>
+    <meta
+      name="description"
+      content="Guess the mystery plant in 10 tries. A new botanical puzzle every day — the pixelated image clears with every wrong guess. Free to play, no signup."
+    />
+    <meta
+      name="keywords"
+      content="daily plant game, plant guessing game, botanical puzzle, plant wordle, plant identification game, houseplant quiz, daily puzzle"
+    />
+    <meta name="author" content="Aphylia" />
+    <meta name="application-name" content="Aphydle" />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1" />
+    <meta name="googlebot" content="index,follow" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+    <link rel="canonical" href="%VITE_APP_SITE_URL%/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Aphydle" />
+    <meta property="og:title" content="Aphydle — Daily Plant Guessing Game" />
+    <meta
+      property="og:description"
+      content="One mystery plant. Ten guesses. The pixelated image clears as you go. A new botanical puzzle every day — free, no signup."
+    />
+    <meta property="og:url" content="%VITE_APP_SITE_URL%/" />
+    <meta property="og:image" content="%VITE_APP_OG_IMAGE%" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Aphydle — daily plant guessing game" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Aphydle — Daily Plant Guessing Game" />
+    <meta
+      name="twitter:description"
+      content="One mystery plant. Ten guesses. A new botanical puzzle every day."
+    />
+    <meta name="twitter:image" content="%VITE_APP_OG_IMAGE%" />
+    <meta name="twitter:image:alt" content="Aphydle — daily plant guessing game" />
+
+    <!-- Favicon: inline SVG leaf so the browser tab and SERP favicon both resolve without a binary asset round-trip. -->
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%230F0F0F'/><path d='M16 44c0-14 12-24 32-26-2 20-12 32-26 32-3 0-6-2-6-6z' fill='%2300D26A'/><path d='M18 46c10-8 18-16 28-22' stroke='%230F0F0F' stroke-width='2' stroke-linecap='round' fill='none'/></svg>"
+    />
+
+    <!-- Performance hints -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://images.unsplash.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&display=swap"
       rel="stylesheet"
     />
+
+    <!-- Structured data: WebApplication + Game so SERPs can render a rich result. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "@id": "%VITE_APP_SITE_URL%/#webapp",
+            "name": "Aphydle",
+            "alternateName": "Aphydle — Daily Plant Guess",
+            "url": "%VITE_APP_SITE_URL%/",
+            "description": "A daily plant guessing game. Identify the mystery plant in ten tries; the pixelated image clears with every wrong guess.",
+            "applicationCategory": "GameApplication",
+            "applicationSubCategory": "Puzzle",
+            "operatingSystem": "Any (web browser)",
+            "browserRequirements": "Requires JavaScript and a modern browser.",
+            "inLanguage": "en",
+            "isAccessibleForFree": true,
+            "image": "%VITE_APP_OG_IMAGE%",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "publisher": { "@id": "%VITE_APP_SITE_URL%/#publisher" }
+          },
+          {
+            "@type": "Game",
+            "@id": "%VITE_APP_SITE_URL%/#game",
+            "name": "Aphydle",
+            "url": "%VITE_APP_SITE_URL%/",
+            "genre": ["Puzzle", "Word Game", "Botany"],
+            "gamePlatform": "Web Browser",
+            "numberOfPlayers": {
+              "@type": "QuantitativeValue",
+              "minValue": 1,
+              "maxValue": 1
+            },
+            "audience": {
+              "@type": "Audience",
+              "audienceType": "Plant enthusiasts, daily-puzzle fans, botany learners"
+            },
+            "isAccessibleForFree": true,
+            "inLanguage": "en"
+          },
+          {
+            "@type": "Organization",
+            "@id": "%VITE_APP_SITE_URL%/#publisher",
+            "name": "Aphylia",
+            "url": "%VITE_APP_SITE_URL%/"
+          },
+          {
+            "@type": "WebSite",
+            "@id": "%VITE_APP_SITE_URL%/#website",
+            "url": "%VITE_APP_SITE_URL%/",
+            "name": "Aphydle",
+            "publisher": { "@id": "%VITE_APP_SITE_URL%/#publisher" },
+            "inLanguage": "en"
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <main style="font-family: system-ui, sans-serif; max-width: 640px; margin: 4rem auto; padding: 0 1.25rem; line-height: 1.55;">
+        <h1>Aphydle — Daily Plant Guessing Game</h1>
+        <p>
+          Aphydle is a daily plant guessing game: one mystery plant, ten guesses,
+          a pixelated image that clears with every wrong attempt. A new botanical
+          puzzle is published every day at UTC midnight.
+        </p>
+        <p>
+          The game requires JavaScript to play. Please enable JavaScript or use a
+          modern browser to start guessing.
+        </p>
+      </main>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
