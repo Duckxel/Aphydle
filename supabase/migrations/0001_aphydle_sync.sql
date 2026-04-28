@@ -88,8 +88,11 @@ grant usage, select  on sequence aphydle.puzzle_results_id_seq to anon, authenti
 --   * The client mints a fresh random uuid every UTC day (stored locally,
 --     never sent to the server unhashed across days). There is therefore
 --     no stable cross-day identifier, no IP capture here, no UA capture.
---   * Anon role can INSERT/UPDATE but never SELECT — individual rows are
---     visible to project admins only (service role, SQL editor, dashboard).
+--   * page_visits is write-only for anon — individual rows are visible to
+--     project admins only (service role, SQL editor, dashboard). attempts
+--     is readable by anon (needed by the upsert's RETURNING * and by the
+--     world histogram); rows there hold nothing but an ephemeral per-day
+--     uuid, the puzzle number, and a guess id, so exposing them is fine.
 create table if not exists aphydle.page_visits (
     id          bigserial primary key,
     anon_id     text not null,
@@ -199,7 +202,23 @@ create policy "update attempt"
         and attempt_no between 1 and 10
     );
 
-grant insert, update on aphydle.attempts                to anon, authenticated;
+-- Read access is required for two reasons:
+--   1. supabase-js .upsert() defaults to Prefer: return=representation, so
+--      PostgREST runs INSERT ... ON CONFLICT DO UPDATE RETURNING *. Without
+--      a SELECT grant + policy, every write 401s with 42501 even though the
+--      row was inserted, and the client's reportFailure() fires on every
+--      guess.
+--   2. The world histogram (aphydle.daily_distribution below) aggregates
+--      over this table. Granting select directly keeps it working under
+--      both classic and security_invoker views.
+drop policy if exists "read attempts" on aphydle.attempts;
+create policy "read attempts"
+    on aphydle.attempts
+    for select
+    to anon, authenticated
+    using (true);
+
+grant select, insert, update on aphydle.attempts         to anon, authenticated;
 grant usage, select  on sequence aphydle.attempts_id_seq to anon, authenticated;
 
 -- ── daily_distribution view ─────────────────────────────────────────────────
