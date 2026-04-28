@@ -125,4 +125,26 @@ The runtime now logs the underlying PostgREST error code (`code=...`,
 `message=...`) once per table to the browser console, so you can match the
 symptom to the cause: `PGRST106` ⇒ schema not exposed (#1), `PGRST301` /
 `JWS verification failed` ⇒ wrong or expired key (#2 or #3), `42501` ⇒
-grants/RLS — re-run the migration.
+grants/RLS — apply `0002_repair_attempts_grants.sql` (see below).
+
+### `42501 permission denied for table attempts`
+
+This is the most common cause of the 401 + empty histogram, and it's sticky:
+once the table exists without `grant insert, update on aphydle.attempts to
+anon`, no amount of editing `0001_aphydle_sync.sql` brings it back, because
+Supabase tracks applied migrations by filename and won't re-run a file it has
+already recorded. (Original cause: an early version of `0001` ran a raw
+`create extension pg_cron` that aborts on locked-down Cloud projects, which
+rolled back every grant that came after it in the same transaction.)
+
+`0002_repair_attempts_grants.sql` is a fresh migration that re-applies the
+RLS policies and grants on every aphydle analytics table. It is idempotent
+and safe to run on any state. Apply it with:
+
+```bash
+supabase db push                # picks up 0002_repair_attempts_grants.sql
+```
+
+Or paste the file's contents into the Supabase SQL editor and run them once.
+After the repair lands, the `[Aphydle] aphydle.attempts write rejected`
+warning stops appearing and the world histogram fills in on the next guess.
