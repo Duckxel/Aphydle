@@ -491,12 +491,18 @@ export async function submitResult(puzzleNo, outcome, guessCount) {
       playerId = getDailyAnonId();
     }
     if (!playerId) return false;
-    const { error } = await aph().from("puzzle_results").insert({
-      puzzle_no: puzzleNo,
-      player_id: playerId,
-      outcome,
-      guess_count: guessCount,
-    });
+    // Upsert with ignoreDuplicates so the effect re-firing on the finish
+    // screen doesn't 409 against the (puzzle_no, player_id) unique key.
+    // First write wins; subsequent calls are no-ops at the database level.
+    const { error } = await aph().from("puzzle_results").upsert(
+      {
+        puzzle_no: puzzleNo,
+        player_id: playerId,
+        outcome,
+        guess_count: guessCount,
+      },
+      { onConflict: "puzzle_no,player_id", ignoreDuplicates: true },
+    );
     return !error;
   } catch {
     return false;
