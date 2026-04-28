@@ -56,6 +56,25 @@ function aphSchema() {
 }
 
 let visitTrackedFor = null;
+// One log per process per table — analytics fires on every guess, so
+// without de-duping a misconfigured project would flood the console.
+const loggedFailures = new Set();
+
+function reportFailure(table, error) {
+  if (!error || loggedFailures.has(table)) return;
+  loggedFailures.add(table);
+  // supabase-js doesn't throw on REST 4xx — it returns { error } with the
+  // PostgREST body. Surface it once so the actual code/message is visible
+  // (e.g. PGRST106 = schema not exposed, PGRST301 = JWT expired, 42501 =
+  // RLS / grant). Without this the network tab shows 401 but the page
+  // never sees why.
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[Aphydle] aphydle.${table} write rejected by Supabase. ` +
+      `code=${error.code || "?"} message=${error.message || "?"}`,
+    error,
+  );
+}
 
 export async function trackVisit(puzzleNo) {
   if (!isSupabaseConfigured) return;
@@ -66,11 +85,12 @@ export async function trackVisit(puzzleNo) {
   if (visitTrackedFor === puzzleNo) return;
   visitTrackedFor = puzzleNo;
   try {
-    await aphSchema()
+    const { error } = await aphSchema()
       .from("page_visits")
       .insert({ anon_id: anonId, puzzle_no: puzzleNo ?? null });
-  } catch {
-    // ignore — analytics is best-effort
+    if (error) reportFailure("page_visits", error);
+  } catch (e) {
+    reportFailure("page_visits", e);
   }
 }
 
@@ -84,7 +104,7 @@ export async function trackAttempt({ puzzleNo, attemptNo, plantId, isCorrect }) 
   // attempt overwrites the same row with the latest count + outcome instead
   // of stacking up one row per attempt.
   try {
-    await aphSchema()
+    const { error } = await aphSchema()
       .from("attempts")
       .upsert(
         {
@@ -97,7 +117,8 @@ export async function trackAttempt({ puzzleNo, attemptNo, plantId, isCorrect }) 
         },
         { onConflict: "anon_id,puzzle_no" },
       );
-  } catch {
-    // network or RLS — ignore, analytics is best-effort
+    if (error) reportFailure("attempts", error);
+  } catch (e) {
+    reportFailure("attempts", e);
   }
 }
