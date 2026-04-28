@@ -134,6 +134,43 @@ create table if not exists aphydle.attempts (
     constraint attempts_anon_id_puzzle_no_key unique (anon_id, puzzle_no)
 );
 
+-- Self-heal databases that were created under an earlier schema where the
+-- unique key was (anon_id, puzzle_no, attempt_no). The runtime upsert keys
+-- on (anon_id, puzzle_no) only — without a matching constraint PostgREST
+-- 400s every attempts write and the world histogram stays empty.
+alter table aphydle.attempts
+    drop constraint if exists attempts_anon_id_puzzle_no_attempt_no_key;
+
+-- The old shape stored one row per individual guess, so a single session
+-- can have several rows with the same (anon_id, puzzle_no). Adding the
+-- new unique constraint would fail on those duplicates, so collapse them
+-- first: keep the highest attempt_no (the final state) and drop the rest.
+delete from aphydle.attempts a
+using aphydle.attempts b
+where a.anon_id = b.anon_id
+  and a.puzzle_no = b.puzzle_no
+  and (
+      a.attempt_no < b.attempt_no
+      or (a.attempt_no = b.attempt_no and a.id < b.id)
+  );
+
+do $$
+begin
+    if not exists (
+        select 1
+        from pg_constraint c
+        join pg_class t on t.oid = c.conrelid
+        join pg_namespace n on n.oid = t.relnamespace
+        where n.nspname = 'aphydle'
+          and t.relname = 'attempts'
+          and c.conname = 'attempts_anon_id_puzzle_no_key'
+    ) then
+        alter table aphydle.attempts
+            add constraint attempts_anon_id_puzzle_no_key
+            unique (anon_id, puzzle_no);
+    end if;
+end $$;
+
 create index if not exists attempts_puzzle_idx on aphydle.attempts (puzzle_no);
 create index if not exists attempts_anon_idx   on aphydle.attempts (anon_id);
 
