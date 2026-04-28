@@ -84,10 +84,14 @@ export async function trackVisit(puzzleNo) {
   // rollover the new value gets its own visit row.
   if (visitTrackedFor === puzzleNo) return;
   visitTrackedFor = puzzleNo;
+  // Routed through aphydle.record_visit (SECURITY DEFINER) instead of a
+  // direct table insert so the call doesn't depend on `anon` holding
+  // INSERT on aphydle.page_visits. See supabase/migrations/0003_attempt_rpc.sql.
   try {
-    const { error } = await aphSchema()
-      .from("page_visits")
-      .insert({ anon_id: anonId, puzzle_no: puzzleNo ?? null });
+    const { error } = await aphSchema().rpc("record_visit", {
+      p_anon_id: anonId,
+      p_puzzle_no: puzzleNo ?? null,
+    });
     if (error) reportFailure("page_visits", error);
   } catch (e) {
     reportFailure("page_visits", e);
@@ -99,24 +103,20 @@ export async function trackAttempt({ puzzleNo, attemptNo, plantId, isCorrect }) 
   if (puzzleNo == null || !attemptNo) return;
   const anonId = getDailyAnonId();
   if (!anonId) return;
-  // Anon ids rotate every UTC day, so (anon_id, puzzle_no) already pins the
-  // row to a single player-day-puzzle. Upsert on that key so each subsequent
-  // attempt overwrites the same row with the latest count + outcome instead
-  // of stacking up one row per attempt.
+  // Routed through aphydle.record_attempt (SECURITY DEFINER) — the function
+  // body runs with the OWNER's privileges, so the upsert succeeds even on
+  // databases where the table-level GRANT on aphydle.attempts somehow never
+  // landed for `anon` (which is what's been 42501-ing this project despite
+  // 0001 and 0002 both granting it). The function still keys on
+  // (anon_id, puzzle_no), so each subsequent guess overwrites the same row.
   try {
-    const { error } = await aphSchema()
-      .from("attempts")
-      .upsert(
-        {
-          anon_id: anonId,
-          puzzle_no: puzzleNo,
-          attempt_no: attemptNo,
-          guess_plant_id: plantId ?? null,
-          is_correct: !!isCorrect,
-          attempted_at: new Date().toISOString(),
-        },
-        { onConflict: "anon_id,puzzle_no" },
-      );
+    const { error } = await aphSchema().rpc("record_attempt", {
+      p_anon_id: anonId,
+      p_puzzle_no: puzzleNo,
+      p_attempt_no: attemptNo,
+      p_guess_plant_id: plantId ?? null,
+      p_is_correct: !!isCorrect,
+    });
     if (error) reportFailure("attempts", error);
   } catch (e) {
     reportFailure("attempts", e);

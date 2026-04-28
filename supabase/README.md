@@ -142,9 +142,18 @@ RLS policies and grants on every aphydle analytics table. It is idempotent
 and safe to run on any state. Apply it with:
 
 ```bash
-supabase db push                # picks up 0002_repair_attempts_grants.sql
+supabase db push                # picks up 0002 + 0003
 ```
 
-Or paste the file's contents into the Supabase SQL editor and run them once.
-After the repair lands, the `[Aphydle] aphydle.attempts write rejected`
-warning stops appearing and the world histogram fills in on the next guess.
+Or paste each file's contents into the Supabase SQL editor and run them once.
+
+If 0002 still doesn't fix it (which has happened on at least one project for
+reasons we never pinned down), `0003_attempt_rpc.sql` removes the table-level
+grant from the equation entirely. It defines `aphydle.record_attempt(...)` and
+`aphydle.record_visit(...)` as `SECURITY DEFINER` functions and the runtime
+calls them via `supabase-js .rpc(...)` instead of writing to the table
+directly. The function body runs with the OWNER's privileges (typically
+`postgres`), so the upsert succeeds even when `anon` somehow ends up without
+INSERT on `aphydle.attempts`. After 0003 lands, the
+`[Aphydle] aphydle.attempts write rejected` warning stops appearing and the
+world histogram fills in on the next guess.
