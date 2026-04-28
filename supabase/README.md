@@ -95,3 +95,34 @@ order by v.puzzle_no desc;
 These drops cascade, which strips the legacy
 `puzzle_results.puzzle_no → daily_puzzles.puzzle_no` foreign key. Existing rows
 in `puzzle_results` are preserved; only the constraint goes away.
+
+## Troubleshooting
+
+**`POST /rest/v1/attempts … 401 (Unauthorized)` on every guess**, and the
+finish-screen world histogram shows only the local player. The migration ran
+successfully but the analytics writes still fail. Three things to check, in
+order:
+
+1. **`aphydle` is in the project's exposed schemas list.** Supabase →
+   Project Settings → API → "Exposed schemas". `aphydle` must be in the
+   comma-separated list (typically alongside `public, graphql_public`).
+   Without it, PostgREST refuses every aphydle-schema call regardless of
+   grants. Edit, save, and the change takes effect immediately.
+
+2. **The `VITE_SUPABASE_ANON_KEY` matches the project.** If the project's
+   API keys were rotated (Project Settings → API → "Reset anon key"), every
+   deployment with the old key starts 401-ing. Update the env var and
+   redeploy. To check: open the deployed site, paste the anon key into
+   <https://jwt.io>, and confirm the `ref` claim matches your project ref.
+
+3. **No stale `sb-*-auth-token` in localStorage.** Aphydle has no sign-in
+   flow, so the client now disables session persistence (see
+   `src/lib/supabase.js`). If you're testing an old build that still had
+   `persistSession: true`, clear site data once for the deployed origin
+   and reload; afterwards every request goes as `anon` with a fresh JWT.
+
+The runtime now logs the underlying PostgREST error code (`code=...`,
+`message=...`) once per table to the browser console, so you can match the
+symptom to the cause: `PGRST106` ⇒ schema not exposed (#1), `PGRST301` /
+`JWS verification failed` ⇒ wrong or expired key (#2 or #3), `42501` ⇒
+grants/RLS — re-run the migration.

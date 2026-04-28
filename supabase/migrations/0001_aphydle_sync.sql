@@ -284,7 +284,15 @@ grant select, insert on aphydle.daily_log to anon, authenticated;
 -- On Supabase Cloud pg_cron must be enabled once via the dashboard
 -- (Database → Extensions → pg_cron); this CREATE EXTENSION is a no-op when
 -- it's already on. Self-hosted projects get it from this migration directly.
-create extension if not exists pg_cron;
+-- Wrap in DO + EXCEPTION because Supabase Cloud forbids CREATE EXTENSION
+-- on locked-down projects, and we don't want a privilege error here to
+-- abort the whole migration and leave the analytics tables un-granted.
+do $$
+begin
+    create extension if not exists pg_cron;
+exception when others then
+    raise notice 'pg_cron extension unavailable (%); skipping cron setup. Enable it via Database → Extensions to schedule the daily log writer.', sqlerrm;
+end $$;
 
 create or replace function aphydle.ensure_daily_log()
 returns aphydle.daily_log
@@ -356,8 +364,21 @@ revoke all on function aphydle.ensure_daily_log() from public;
 -- it, then (re)register at 00:05 UTC daily. The 5-minute offset gives the
 -- date boundary a small grace window so the function never lands on the
 -- exact tick where (now() at time zone 'utc')::date is still resolving.
+--
+-- Skip silently if pg_cron isn't installed — the runtime fallback in
+-- src/lib/data.js#recordDailyPick still stamps daily_log on the first
+-- visit each day, so the cron job is a backstop, not a hard requirement.
+-- Without this guard, a missing pg_cron on Supabase Cloud aborts the
+-- whole migration and the grants/policies for aphydle.attempts never
+-- run, which is what was 401-ing every analytics write.
 do $$
 begin
+    if not exists (
+        select 1 from pg_extension where extname = 'pg_cron'
+    ) then
+        raise notice 'pg_cron not installed; skipping aphydle_ensure_daily_log schedule.';
+        return;
+    end if;
     if exists (select 1 from cron.job where jobname = 'aphydle_ensure_daily_log') then
         perform cron.unschedule('aphydle_ensure_daily_log');
     end if;
@@ -366,4 +387,6 @@ begin
         '5 0 * * *',
         $cron$select aphydle.ensure_daily_log();$cron$
     );
+exception when others then
+    raise notice 'cron.schedule failed (%); skipping. Daily log will be stamped on first client visit.', sqlerrm;
 end $$;

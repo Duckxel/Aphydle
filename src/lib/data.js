@@ -447,6 +447,7 @@ export async function searchGuessable(q, { signal } = {}) {
   return localSearch(trimmed);
 }
 
+let loggedDistributionError = false;
 export async function loadDistribution(puzzleNo) {
   if (!isSupabaseConfigured || !puzzleNo) return null;
   try {
@@ -455,7 +456,22 @@ export async function loadDistribution(puzzleNo) {
       .select("*")
       .eq("puzzle_no", puzzleNo)
       .maybeSingle();
-    if (error || !data) return null;
+    if (error) {
+      if (!loggedDistributionError) {
+        loggedDistributionError = true;
+        // Surface the actual PostgREST error once. Without this, a 401/403
+        // on the world histogram looks identical to "no plays yet" — the
+        // chart silently falls back to showing only the local player.
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[Aphydle] aphydle.daily_distribution read rejected by Supabase. ` +
+            `code=${error.code || "?"} message=${error.message || "?"}`,
+          error,
+        );
+      }
+      return null;
+    }
+    if (!data) return null;
     return [
       data.bucket_1 || 0,
       data.bucket_2 || 0,
