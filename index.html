@@ -2,18 +2,281 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Aphydle — Daily Plant Guess</title>
-    <meta name="description" content="Aphydle: a daily plant guessing game. One plant, ten guesses." />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0F0F0F" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#E8E2D0" media="(prefers-color-scheme: light)" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="format-detection" content="telephone=no" />
+
+    <title>Aphydle — Daily Plant Guessing Game</title>
+    <meta
+      name="description"
+      content="Guess the mystery plant in 10 tries. A new botanical puzzle every day — the pixelated image clears with every wrong guess. Free to play, no signup."
+    />
+    <meta
+      name="keywords"
+      content="daily plant game, plant guessing game, botanical puzzle, plant wordle, plant identification game, houseplant quiz, daily puzzle"
+    />
+    <meta name="author" content="Aphylia" />
+    <meta name="application-name" content="Aphydle" />
+    <meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1" />
+    <meta name="googlebot" content="index,follow" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+
+    <link rel="canonical" href="%VITE_APP_SITE_URL%/" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Aphydle" />
+    <meta property="og:title" content="Aphydle — Daily Plant Guessing Game" />
+    <meta
+      property="og:description"
+      content="One mystery plant. Ten guesses. The pixelated image clears as you go. A new botanical puzzle every day — free, no signup."
+    />
+    <meta property="og:url" content="%VITE_APP_SITE_URL%/" />
+    <meta property="og:image" content="%VITE_APP_OG_IMAGE%" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Aphydle — daily plant guessing game" />
+    <meta property="og:locale" content="en_US" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Aphydle — Daily Plant Guessing Game" />
+    <meta
+      name="twitter:description"
+      content="One mystery plant. Ten guesses. A new botanical puzzle every day."
+    />
+    <meta name="twitter:image" content="%VITE_APP_OG_IMAGE%" />
+    <meta name="twitter:image:alt" content="Aphydle — daily plant guessing game" />
+
+    <!-- Favicon: inline SVG leaf so the browser tab and SERP favicon both resolve without a binary asset round-trip. -->
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%230F0F0F'/><path d='M16 44c0-14 12-24 32-26-2 20-12 32-26 32-3 0-6-2-6-6z' fill='%2300D26A'/><path d='M18 46c10-8 18-16 28-22' stroke='%230F0F0F' stroke-width='2' stroke-linecap='round' fill='none'/></svg>"
+    />
+
+    <!-- Performance hints -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://images.unsplash.com" />
     <link
       href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&display=swap"
       rel="stylesheet"
     />
+
+    <!-- Structured data: WebApplication + Game so SERPs can render a rich result. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "@id": "%VITE_APP_SITE_URL%/#webapp",
+            "name": "Aphydle",
+            "alternateName": "Aphydle — Daily Plant Guess",
+            "url": "%VITE_APP_SITE_URL%/",
+            "description": "A daily plant guessing game. Identify the mystery plant in ten tries; the pixelated image clears with every wrong guess.",
+            "applicationCategory": "GameApplication",
+            "applicationSubCategory": "Puzzle",
+            "operatingSystem": "Any (web browser)",
+            "browserRequirements": "Requires JavaScript and a modern browser.",
+            "inLanguage": "en",
+            "isAccessibleForFree": true,
+            "image": "%VITE_APP_OG_IMAGE%",
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "publisher": { "@id": "%VITE_APP_SITE_URL%/#publisher" }
+          },
+          {
+            "@type": "Game",
+            "@id": "%VITE_APP_SITE_URL%/#game",
+            "name": "Aphydle",
+            "url": "%VITE_APP_SITE_URL%/",
+            "genre": ["Puzzle", "Word Game", "Botany"],
+            "gamePlatform": "Web Browser",
+            "numberOfPlayers": {
+              "@type": "QuantitativeValue",
+              "minValue": 1,
+              "maxValue": 1
+            },
+            "audience": {
+              "@type": "Audience",
+              "audienceType": "Plant enthusiasts, daily-puzzle fans, botany learners"
+            },
+            "isAccessibleForFree": true,
+            "inLanguage": "en"
+          },
+          {
+            "@type": "Organization",
+            "@id": "%VITE_APP_SITE_URL%/#publisher",
+            "name": "Aphylia",
+            "url": "%VITE_APP_SITE_URL%/"
+          },
+          {
+            "@type": "WebSite",
+            "@id": "%VITE_APP_SITE_URL%/#website",
+            "url": "%VITE_APP_SITE_URL%/",
+            "name": "Aphydle",
+            "publisher": { "@id": "%VITE_APP_SITE_URL%/#publisher" },
+            "inLanguage": "en"
+          },
+          {
+            "@type": "HowTo",
+            "@id": "%VITE_APP_SITE_URL%/#how-to-play",
+            "name": "How to play Aphydle",
+            "description": "Identify the daily mystery plant in ten guesses. Each wrong guess clears the pixelated mosaic and reveals more attribute clues.",
+            "totalTime": "PT5M",
+            "estimatedCost": { "@type": "MonetaryAmount", "currency": "USD", "value": "0" },
+            "supply": [
+              { "@type": "HowToSupply", "name": "A web browser" },
+              { "@type": "HowToSupply", "name": "Curiosity about houseplants" }
+            ],
+            "step": [
+              {
+                "@type": "HowToStep",
+                "position": 1,
+                "name": "Open today's puzzle",
+                "text": "Open Aphydle and look at the pixelated mosaic — that's today's mystery plant rendered as a chunky low-resolution image."
+              },
+              {
+                "@type": "HowToStep",
+                "position": 2,
+                "name": "Submit a plant guess",
+                "text": "Type a plant name into the guess box and pick a match from the autocomplete dropdown, then submit."
+              },
+              {
+                "@type": "HowToStep",
+                "position": 3,
+                "name": "Read the attribute feedback",
+                "text": "Each guess is compared cell-by-cell against the answer. Family, habitat, growth form, foliage, light, native region and toxicity light up green when they match the answer and are struck through when they don't."
+              },
+              {
+                "@type": "HowToStep",
+                "position": 4,
+                "name": "Use the clearing image and revealed hints",
+                "text": "After every wrong guess the mosaic clears slightly and an extra text hint is unlocked, narrowing the search space round by round."
+              },
+              {
+                "@type": "HowToStep",
+                "position": 5,
+                "name": "Identify the plant within ten guesses",
+                "text": "You have ten attempts. Solve the puzzle to win — or read the answer, fact and global stats on the finish screen if you run out."
+              }
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "@id": "%VITE_APP_SITE_URL%/#faq",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is Aphydle?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Aphydle is a free daily plant guessing game. Every day a single mystery plant is revealed as a pixelated mosaic and you have ten attempts to identify it before the image fully clears."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do I play Aphydle?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Type a plant name into the guess box and submit. Matching attributes (family, habitat, light, native region, toxicity) light up green and mismatches are struck through. The pixelated image also clears with every wrong guess and a new text hint is revealed."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "When does a new Aphydle puzzle release?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "A new mystery plant goes live every day at UTC midnight. Your in-progress guesses are saved locally so you can pause and resume the same puzzle from any tab on the same device."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is Aphydle free to play?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. Aphydle is completely free, runs entirely in your browser, requires no account or signup, and ships with no ads or in-game purchases."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How many guesses do I get in Aphydle?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Ten guesses per day. Hint text is revealed at attempts one through nine; if you reach guess ten without identifying the plant the answer is revealed on the finish screen along with a fact and the global guess distribution."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Can I replay past Aphydle puzzles?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes — open the Archive sheet to replay any past puzzle you haven't already finished. Once a daily puzzle is solved or lost it is locked from replay so the daily streak stays honest. The /puzzle/ archive also publishes a recap page for every past answer."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How is Aphydle different from Wordle?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Aphydle borrows Wordle's once-a-day, ten-attempt structure but you guess plants instead of words. Each guess returns attribute-by-attribute feedback (family, habitat, growth form, light, etc.) and the pixelated mosaic of the answer clears progressively as you go."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <main style="font-family: system-ui, sans-serif; max-width: 720px; margin: 3rem auto; padding: 0 1.25rem; line-height: 1.6; color: #1a1814;">
+        <h1>Aphydle — Daily Plant Guessing Game</h1>
+        <p>
+          Aphydle is a free daily plant guessing game. Every day a single mystery
+          plant is revealed as a pixelated mosaic and you have ten attempts to
+          identify it before the image fully clears. A new puzzle goes live at
+          UTC midnight.
+        </p>
+        <p>
+          The game requires JavaScript to play. Please enable JavaScript or use a
+          modern browser to start guessing.
+        </p>
+
+        <h2>How to play Aphydle</h2>
+        <ol>
+          <li><strong>Open today's puzzle.</strong> The mystery plant is rendered as a chunky low-resolution mosaic on the home screen.</li>
+          <li><strong>Submit a guess.</strong> Type a plant name into the guess box and pick a match from the autocomplete dropdown, then submit.</li>
+          <li><strong>Read the attribute feedback.</strong> Each guess is compared cell-by-cell against the answer — family, habitat, growth form, foliage, light, native region and toxicity light up green when they match and are struck through when they don't.</li>
+          <li><strong>Use the clearing image and unlocked hints.</strong> After every wrong guess the mosaic clears slightly and an extra text hint is revealed, narrowing the search space round by round.</li>
+          <li><strong>Solve within ten guesses.</strong> You have ten attempts. Identify the plant to win — or read the answer, fact and global stats on the finish screen if you run out.</li>
+        </ol>
+
+        <h2>Frequently asked questions</h2>
+        <h3>What is Aphydle?</h3>
+        <p>Aphydle is a free daily plant guessing game. One mystery plant per day, ten guesses, a pixelated image that clears as you go.</p>
+        <h3>How do I play Aphydle?</h3>
+        <p>Submit plant guesses; matching attributes (family, habitat, light, native region, toxicity) light up green and mismatches are struck through. The pixelated image also clears with every wrong guess and a new text hint is revealed.</p>
+        <h3>When does a new Aphydle puzzle release?</h3>
+        <p>Every day at UTC midnight. Your in-progress guesses are saved locally so you can pause and resume the same puzzle from any tab on the same device.</p>
+        <h3>Is Aphydle free to play?</h3>
+        <p>Yes. Aphydle runs entirely in your browser, requires no account or signup, and ships with no ads or in-game purchases.</p>
+        <h3>How many guesses do I get?</h3>
+        <p>Ten per day. Hint text is revealed at attempts one through nine; if you reach guess ten without identifying the plant the answer is shown on the finish screen.</p>
+        <h3>Can I replay past Aphydle puzzles?</h3>
+        <p>Yes — the Archive screen lets you replay any past puzzle you haven't already finished. Once a daily puzzle is solved or lost it's locked from replay so the daily streak stays honest. You can also browse the <a href="/puzzle/">puzzle archive</a> to read recap pages for past answers.</p>
+        <h3>How is Aphydle different from Wordle?</h3>
+        <p>Aphydle borrows Wordle's once-a-day, ten-attempt structure but you guess plants instead of words. Each guess returns attribute-by-attribute feedback and the pixelated mosaic of the answer clears progressively.</p>
+      </main>
+    </noscript>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
