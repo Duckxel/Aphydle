@@ -23,13 +23,13 @@ export function HowToScreen({ theme, onClose }) {
     ],
     [
       "4.",
-      "Each guess is compared on seven traits.",
+      "Each guess is compared on eight traits.",
       "Cells that match the answer turn green. Cells that don't are struck through.",
     ],
     [
       "5.",
       "Use the comparisons to narrow it down.",
-      "Family, habitat, growth form, foliage, light, native region, and toxicity — every match rules out a lot of the remaining catalog.",
+      "Family, plant type, utility, origin, climate, living space, foliage, and habitat — every match rules out a lot of the remaining catalog.",
     ],
     [
       "6.",
