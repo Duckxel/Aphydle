@@ -14,7 +14,6 @@ import {
   loadGameState,
   saveGameState,
   recordResult,
-  isPuzzlePlayed,
 } from "./lib/storage.js";
 import { trackVisit } from "./lib/analytics.js";
 
@@ -79,26 +78,19 @@ export default function App() {
   // URLs, not routes the SPA navigates between.
   const initialRoute = useMemo(readInitialRoute, []);
 
-  // When set, replaces today's puzzle with an archived one — the Archive
-  // screen calls onPlayPuzzle() to start a replay session for any puzzle
-  // the player hasn't completed yet. Seeded from `/puzzle/<n>` when the
-  // requested puzzle is unplayed; otherwise we fall back to opening the
-  // Archive sheet so the player can see (but not replay) it.
+  // When set, replaces today's puzzle with an archived one. For unplayed
+  // puzzles this becomes a real replay session; for already-finished ones
+  // it lands on the FinishScreen (state hydrates with the saved outcome)
+  // so the player can review the answer, the recap and the global stats.
   const [archivePuzzleNo, setArchivePuzzleNo] = useState(() => {
-    if (initialRoute.type === "puzzle" && !isPuzzlePlayed(initialRoute.puzzleNo)) {
-      return initialRoute.puzzleNo;
-    }
+    if (initialRoute.type === "puzzle") return initialRoute.puzzleNo;
     return null;
   });
 
   // One-shot signal that opens the Archive overlay on first render of the
-  // GameScreen / FinishScreen. Used for `/puzzle` and for `/puzzle/<n>` when
-  // n is already finished (replay is locked, so we surface the archive list).
-  const initialOverlay =
-    initialRoute.type === "archive" ||
-    (initialRoute.type === "puzzle" && isPuzzlePlayed(initialRoute.puzzleNo))
-      ? "archive"
-      : null;
+  // GameScreen / FinishScreen. Only used by the bare `/puzzle` entry; the
+  // `/puzzle/<n>` form goes straight to that puzzle's screen.
+  const initialOverlay = initialRoute.type === "archive" ? "archive" : null;
 
   // Strip the entry path so refreshing the page doesn't keep re-firing the
   // same intent (would re-open the archive every reload, or restart a replay
@@ -182,13 +174,15 @@ export default function App() {
   if (!answer || puzzleNo == null) return null;
 
   // The Archive owns the replay-puzzle picker. A null puzzleNo from the
-  // archive means "back to today".
+  // archive means "back to today". For finished puzzles we still load the
+  // archive entry — state hydrate restores the saved outcome, so the
+  // FinishScreen surfaces (answer, recap and distribution) rather than
+  // re-opening the locked replay.
   function handlePlayPuzzle(no) {
     if (no == null) {
       setArchivePuzzleNo(null);
       return;
     }
-    if (isPuzzlePlayed(no)) return; // local lock — never replay a finished puzzle
     setArchivePuzzleNo(no);
   }
 

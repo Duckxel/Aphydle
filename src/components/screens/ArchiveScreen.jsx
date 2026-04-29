@@ -187,24 +187,29 @@ export function ArchiveScreen({ theme, onClose, currentPuzzleNo, onPlayPuzzle })
             // already in their history — otherwise it's locked like the rest.
             const revealed = Boolean(p.played);
             const playable = Boolean(onPlayPuzzle) && !revealed;
+            // Revealed past puzzles are clickable too — they don't replay
+            // (history locks the outcome) but they open the FinishScreen so
+            // the player can re-read the answer, the recap and the stats.
+            const reviewable = Boolean(onPlayPuzzle) && revealed && !p.isToday;
+            const interactive = playable || reviewable || p.isToday;
             const handleClick = () => {
               if (!onPlayPuzzle) return;
               if (p.isToday) {
                 // Returning to today is always allowed; if today is already
                 // played the parent ignores the call.
                 onPlayPuzzle(null);
-              } else if (playable) {
+              } else if (playable || reviewable) {
                 onPlayPuzzle(p.puzzleNo);
               }
             };
             return (
               <div
                 key={p.puzzleNo}
-                onClick={playable || p.isToday ? handleClick : undefined}
-                role={playable || p.isToday ? "button" : undefined}
-                tabIndex={playable || p.isToday ? 0 : undefined}
+                onClick={interactive ? handleClick : undefined}
+                role={interactive ? "button" : undefined}
+                tabIndex={interactive ? 0 : undefined}
                 onKeyDown={(e) => {
-                  if ((e.key === "Enter" || e.key === " ") && (playable || p.isToday)) {
+                  if ((e.key === "Enter" || e.key === " ") && interactive) {
                     e.preventDefault();
                     handleClick();
                   }
@@ -213,7 +218,7 @@ export function ArchiveScreen({ theme, onClose, currentPuzzleNo, onPlayPuzzle })
                   display: "flex",
                   flexDirection: "column",
                   gap: 8,
-                  cursor: playable || p.isToday ? "pointer" : "default",
+                  cursor: interactive ? "pointer" : "default",
                 }}
               >
                 <div
