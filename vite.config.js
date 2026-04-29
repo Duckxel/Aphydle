@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -23,24 +23,29 @@ function shortGitSha() {
 const pkg = JSON.parse(
   readFileSync(resolve(__dirname, "package.json"), "utf8"),
 );
-const BUILD_SHA = shortGitSha();
-const BUILD_TIMESTAMP = process.env.VITE_APP_BUILD_TIMESTAMP || new Date().toISOString();
 const APP_VERSION = pkg.version || "0.0.0";
+
+// These are computed once at module load with whatever env is in process.env
+// at that moment, then reassigned inside the defineConfig callback after
+// loadEnv has merged in .env files. Plugins capture the bindings by closure,
+// so they read the post-loadEnv values at request time.
+let BUILD_SHA = shortGitSha();
+let BUILD_TIMESTAMP = process.env.VITE_APP_BUILD_TIMESTAMP || new Date().toISOString();
 
 // Canonical site URL used by SEO artefacts (canonical link, OG/Twitter URLs,
 // JSON-LD, robots.txt, sitemap.xml). Override via env when deploying to a
 // different host. Trailing slash is stripped so we can compose paths cleanly.
-const SITE_URL = (process.env.VITE_APP_SITE_URL || "https://aphydle.aphylia.com")
+let SITE_URL = (process.env.VITE_APP_SITE_URL || "https://aphydle.aphylia.com")
   .trim()
   .replace(/\/+$/, "");
-const OG_IMAGE = (process.env.VITE_APP_OG_IMAGE || `${SITE_URL}/og-image.png`).trim();
+let OG_IMAGE = (process.env.VITE_APP_OG_IMAGE || `${SITE_URL}/og-image.png`).trim();
 
 // In dev we bind to 127.0.0.1 by default for safety — `vite dev` is not
 // hardened for the open internet. Set APHYDLE_DEV_HOST=0.0.0.0 (or use
 // `npm run dev -- --host`) when you really need LAN access. In the
 // embedded production layout the systemd unit binds to localhost only
 // and nginx fronts the public subdomain.
-const DEV_HOST = process.env.APHYDLE_DEV_HOST || "127.0.0.1";
+let DEV_HOST = process.env.APHYDLE_DEV_HOST || "127.0.0.1";
 
 // Emits robots.txt and sitemap.xml with absolute URLs derived from
 // SITE_URL, and substitutes %VITE_APP_SITE_URL% / %VITE_APP_OG_IMAGE%
@@ -280,22 +285,45 @@ function healthEndpointPlugin() {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), seoArtifactsPlugin(), healthEndpointPlugin()],
-  base: process.env.VITE_APP_BASE_PATH || "/",
-  define: {
-    "import.meta.env.VITE_APP_BUILD_TIMESTAMP": JSON.stringify(BUILD_TIMESTAMP),
-    "import.meta.env.VITE_APP_BUILD_SHA": JSON.stringify(BUILD_SHA),
-    "import.meta.env.VITE_APP_VERSION": JSON.stringify(APP_VERSION),
-    "import.meta.env.VITE_APP_SITE_URL": JSON.stringify(SITE_URL),
-    "import.meta.env.VITE_APP_OG_IMAGE": JSON.stringify(OG_IMAGE),
-  },
-  server: {
-    port: 5173,
-    host: DEV_HOST,
-  },
-  build: {
-    outDir: "dist",
-    sourcemap: false,
-  },
+export default defineConfig(({ mode }) => {
+  // loadEnv reads .env, .env.local, .env.<mode>, .env.<mode>.local from
+  // the project root. Empty-prefix means "load every var", not just VITE_*,
+  // so seo/puzzle-fetch.mjs can read VITE_SUPABASE_URL via process.env at
+  // buildStart() time the same way client code reads it via import.meta.env.
+  const env = loadEnv(mode, process.cwd(), "");
+  for (const [k, v] of Object.entries(env)) {
+    if (process.env[k] === undefined) process.env[k] = v;
+  }
+
+  // Refresh module-level bindings now that .env files are merged in. The
+  // plugin closures capture these by reference, so reassigning here
+  // propagates the resolved values to robots.txt / sitemap.xml / index.html
+  // placeholders without restructuring the plugin.
+  BUILD_SHA = shortGitSha();
+  BUILD_TIMESTAMP = process.env.VITE_APP_BUILD_TIMESTAMP || BUILD_TIMESTAMP;
+  SITE_URL = (process.env.VITE_APP_SITE_URL || "https://aphydle.aphylia.com")
+    .trim()
+    .replace(/\/+$/, "");
+  OG_IMAGE = (process.env.VITE_APP_OG_IMAGE || `${SITE_URL}/og-image.png`).trim();
+  DEV_HOST = process.env.APHYDLE_DEV_HOST || DEV_HOST;
+
+  return {
+    plugins: [react(), seoArtifactsPlugin(), healthEndpointPlugin()],
+    base: process.env.VITE_APP_BASE_PATH || "/",
+    define: {
+      "import.meta.env.VITE_APP_BUILD_TIMESTAMP": JSON.stringify(BUILD_TIMESTAMP),
+      "import.meta.env.VITE_APP_BUILD_SHA": JSON.stringify(BUILD_SHA),
+      "import.meta.env.VITE_APP_VERSION": JSON.stringify(APP_VERSION),
+      "import.meta.env.VITE_APP_SITE_URL": JSON.stringify(SITE_URL),
+      "import.meta.env.VITE_APP_OG_IMAGE": JSON.stringify(OG_IMAGE),
+    },
+    server: {
+      port: 5173,
+      host: DEV_HOST,
+    },
+    build: {
+      outDir: "dist",
+      sourcemap: false,
+    },
+  };
 });
