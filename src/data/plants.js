@@ -212,10 +212,11 @@ export const GUESSABLE = [
 
 export const COMPARE_COLUMNS = [
   { key: "family", label: "Family" },
-  { key: "habitat", label: "Habitat" },
-  { key: "growthForm", label: "Growth" },
+  { key: "type", label: "Plant type" },
+  { key: "utility", label: "Utility" },
+  { key: "nativeRegion", label: "Origin" },
+  { key: "climate", label: "Climate" },
+  { key: "livingSpace", label: "Living space" },
   { key: "foliage", label: "Foliage" },
-  { key: "lightNeeds", label: "Light" },
-  { key: "nativeRegion", label: "Native to" },
-  { key: "toxicity", label: "Toxicity" },
+  { key: "habitat", label: "Habitat" },
 ];

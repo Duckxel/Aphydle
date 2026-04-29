@@ -8,15 +8,16 @@
 // Plant data lives in the shared `public.plants` table populated by
 // PlantSwipe. The badge labels in src/data/plants.js#COMPARE_COLUMNS map
 // to these columns:
-//   FAMILY    → plants.family               (text)
-//   HABITAT   → plants.habitat              (text[])
-//   GROWTH    → plants.plant_habit          (text[])
-//   FOLIAGE   → plants.foliage_persistence  (text[])
-//   LIGHT     → plants.sunlight             (text[])
-//   NATIVE TO → plant_translations.origin   (joined, language-keyed)
-//   TOXICITY  → max(toxicity_human, toxicity_pets) — UI shows worst case
-//   NAME      → plant_translations.name overrides plants.name
-//   IMAGE     → plant_images.link (matched by `use`)
+//   FAMILY       → plants.family               (text)
+//   PLANT TYPE   → plants.plant_type           (text)
+//   UTILITY      → plants.utility              (text[])
+//   ORIGIN       → plant_translations.origin   (joined, language-keyed)
+//   CLIMATE      → plants.climate              (text[])
+//   LIVING SPACE → plants.living_space         (text[])
+//   FOLIAGE      → plants.foliage_persistence  (text[])
+//   HABITAT      → plants.habitat              (text[])
+//   NAME         → plant_translations.name overrides plants.name
+//   IMAGE        → plant_images.link (matched by `use`)
 
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 import {
@@ -153,9 +154,13 @@ function rowToGuessable(r) {
     name: tr?.name || r.name || "",
     variety: tr?.variety || "",
     family: r.family || "",
+    type: r.plant_type || "",
+    utility: arrAll(r.utility),
     habitat: arrAll(r.habitat),
     growthForm: arrAll(r.plant_habit),
     foliage: arrAll(r.foliage_persistence),
+    climate: arrAll(r.climate),
+    livingSpace: arrAll(r.living_space),
     lightNeeds: arrAll(r.sunlight),
     nativeRegion: arrAll(tr?.origin),
     toxicity: worstToxicity(r.toxicity_human, r.toxicity_pets),
