@@ -55,15 +55,14 @@ export function msUntilNextUtcMidnight(date = new Date()) {
 
 
 export const HINT_SCHEDULE = [
-  { atAttempt: 1, key: "habitat", label: "Habitat" },
-  { atAttempt: 2, key: "growth", label: "Growth form" },
-  { atAttempt: 3, key: "foliage", label: "Foliage" },
-  { atAttempt: 4, key: "care", label: "Care + light" },
-  { atAttempt: 5, key: "region", label: "Native to" },
-  { atAttempt: 6, key: "family", label: "Family" },
-  { atAttempt: 7, key: "toxicity", label: "Toxicity" },
-  { atAttempt: 8, key: "name-shape", label: "Name shape" },
-  { atAttempt: 9, key: "genus", label: "Genus" },
+  { atAttempt: 1, key: "family", label: "Family" },
+  { atAttempt: 2, key: "type", label: "Plant type" },
+  { atAttempt: 3, key: "utility", label: "Utility" },
+  { atAttempt: 4, key: "origin", label: "Country of origin" },
+  { atAttempt: 5, key: "climate", label: "Climate" },
+  { atAttempt: 6, key: "livingSpace", label: "Living space" },
+  { atAttempt: 7, key: "foliage", label: "Foliage" },
+  { atAttempt: 8, key: "habitat", label: "Habitat" },
 ];
 
 function asText(v) {
@@ -73,26 +72,22 @@ function asText(v) {
 
 export function buildHint(key, plant) {
   switch (key) {
-    case "habitat":
-      return asText(plant.habitat);
-    case "growth":
-      return asText(plant.growthForm);
-    case "foliage":
-      return asText(plant.foliage);
-    case "care":
-      return `${"●".repeat(plant.careLevel)}${"○".repeat(5 - plant.careLevel)}  ·  ${asText(plant.lightNeeds)}`;
-    case "region":
-      return asText(plant.nativeRegion);
     case "family":
       return plant.family;
-    case "toxicity":
-      return plant.toxicity;
-    case "name-shape": {
-      const n = plant.commonName.split(" ")[0];
-      return `${n[0]} ${"·".repeat(n.length - 1)}  ·  ${plant.commonName.length} characters`;
-    }
-    case "genus":
-      return plant.scientificName.split(" ")[0];
+    case "type":
+      return asText(plant.type);
+    case "utility":
+      return asText(plant.utility);
+    case "origin":
+      return asText(plant.nativeRegion);
+    case "climate":
+      return asText(plant.climate);
+    case "livingSpace":
+      return asText(plant.livingSpace);
+    case "foliage":
+      return asText(plant.foliage);
+    case "habitat":
+      return asText(plant.habitat);
     default:
       return "";
   }

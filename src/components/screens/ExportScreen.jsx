@@ -14,8 +14,8 @@ const APH_ACCENT = "#00D26A";
 const APH_MUTED = "#8A8A85";
 
 const CARD_HINTS = [
-  { key: "habitat", label: "Habitat" },
-  { key: "growth", label: "Growth form" },
+  { key: "climate", label: "Climate" },
+  { key: "type", label: "Plant type" },
   { key: "foliage", label: "Foliage" },
 ];
 
