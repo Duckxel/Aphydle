@@ -32,7 +32,14 @@ export function FinishScreen({
 }) {
   const T = tokens(theme);
   const [dist, setDist] = useState(null);
-  const [overlay, setOverlay] = useState(null);
+  // The export overlay is intentionally not exposed via any visible control.
+  // Only people who know the secret URL (?export=open) can open it.
+  const [overlay, setOverlay] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("export") === "open") return "export";
+    return null;
+  });
   useEffect(() => {
     let cancelled = false;
     loadDistribution(puzzleNo).then((d) => {
@@ -110,7 +117,6 @@ export function FinishScreen({
           <NavBtn theme={theme} label="?" onClick={() => setOverlay("how")} title="How to play" />
           <NavBtn theme={theme} label="◫" onClick={() => setOverlay("archive")} title="Archive" />
           <NavBtn theme={theme} label="▤" onClick={() => setOverlay("stats")} title="Stats" />
-          <NavBtn theme={theme} label="↗" onClick={() => setOverlay("export")} title="Export for social" />
         </div>
       </header>
 
@@ -396,24 +402,6 @@ export function FinishScreen({
               >
                 VIEW ON APHYLIA →
               </a>
-              <button
-                onClick={() => setOverlay("export")}
-                style={{
-                  flex: 1,
-                  minWidth: 140,
-                  padding: "16px 22px",
-                  background: "transparent",
-                  color: T.text,
-                  border: `1px solid ${T.border}`,
-                  cursor: "pointer",
-                  fontFamily: "var(--mono)",
-                  fontSize: 11,
-                  letterSpacing: "0.16em",
-                }}
-                title="Export shareable images for social media"
-              >
-                EXPORT ↗
-              </button>
               <button
                 onClick={() => setOverlay("archive")}
                 style={{
