@@ -88,6 +88,8 @@ function seoArtifactsPlugin() {
       "",
       "# Block the build/health probe from being indexed.",
       "Disallow: /health.json",
+      "# Admin-only social export entry point.",
+      "Disallow: /export",
       "",
       `Sitemap: ${SITE_URL}/sitemap.xml`,
       "",

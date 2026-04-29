@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { GameScreen } from "./components/GameScreen.jsx";
 import { FinishScreen } from "./components/FinishScreen.jsx";
+import { ExportPage } from "./components/screens/ExportPage.jsx";
 import {
   gameReducer,
   initialGameState,
@@ -17,7 +18,36 @@ import {
 } from "./lib/storage.js";
 import { trackVisit, trackAttempt } from "./lib/analytics.js";
 
+// `/export` (and `/export/`) is a separate admin entry point that bypasses
+// the game state machine entirely — it loads any puzzle by number and renders
+// the social export cards. Detected at the URL level so the Aphydle SPA
+// fallback (any extensionless path → index.html) lands here without router.
+function isExportPath() {
+  if (typeof window === "undefined") return false;
+  const p = window.location.pathname.replace(/\/+$/, "");
+  return p === "/export";
+}
+
+// Standalone admin entry — owns its own theme state so the host App's
+// hooks never run on the export path. Switching paths requires a full
+// reload (no client-side router), so the choice between roots is stable
+// for a given mount and rules of hooks aren't a concern.
+function ExportApp() {
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === "undefined") return "dark";
+    return localStorage.getItem("aphydle:theme") || "dark";
+  });
+  useEffect(() => {
+    localStorage.setItem("aphydle:theme", theme);
+  }, [theme]);
+  // setTheme is intentionally unused — the export page has no theme picker.
+  void setTheme;
+  return <ExportPage theme={theme} />;
+}
+
 export default function App() {
+  if (isExportPath()) return <ExportApp />;
+
   // Theme — persisted independently of game state.
   const [theme, setTheme] = useState(() => {
     if (typeof window === "undefined") return "dark";
