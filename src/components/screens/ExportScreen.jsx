@@ -3,6 +3,7 @@ import { tokens } from "../ui/tokens.js";
 import { Sheet } from "./Sheet.jsx";
 import { tileCountForLevel, buildHint } from "../../engine/game.js";
 import { preloadImage, getCachedImage } from "../../lib/imageCache.js";
+import { loadArchivedPuzzle } from "../../lib/data.js";
 import logoUrl from "../../assets/FINAL.png";
 
 const APHYDLE_URL = "aphydle.aphylia.app";
@@ -13,35 +14,74 @@ const APH_FG = "#F5F1E8";
 const APH_ACCENT = "#00D26A";
 const APH_MUTED = "#8A8A85";
 
-const CARD_HINTS = [
+// Full pool of hints the export can surface. Picking three deterministically
+// per plant (seeded by id) means each plant gets a stable but varied trio
+// instead of always Climate / Plant type / Foliage.
+const HINT_POOL = [
+  { key: "family", label: "Family" },
+  { key: "type", label: "Plant type" },
+  { key: "utility", label: "Utility" },
+  { key: "origin", label: "Country of origin" },
+  { key: "climate", label: "Climate" },
+  { key: "livingSpace", label: "Living space" },
+  { key: "foliage", label: "Foliage" },
   { key: "habitat", label: "Habitat" },
-  { key: "growth", label: "Growth form" },
-  { key: "colors", label: "Foliage" },
+  { key: "lifeCycle", label: "Life cycle" },
 ];
 
-function buildCards(plant) {
-  return [
+function hashString(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+// Fisher–Yates with an LCG seeded off the plant id — same plant always gets
+// the same shuffle, different plants don't.
+function seededShuffle(arr, seedStr) {
+  const out = arr.slice();
+  let s = hashString(String(seedStr || "aphydle")) || 1;
+  function rand() {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 0x100000000;
+  }
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function pickHintsForPlant(plant) {
+  const populated = HINT_POOL.filter(
+    (h) => String(buildHint(h.key, plant) || "").trim() !== "",
+  );
+  return seededShuffle(populated, plant?.id || "").slice(0, 3);
+}
+
+function buildCards(plant, yesterday) {
+  const hints = pickHintsForPlant(plant);
+  const cards = [
     { level: 7, kind: "title", title: "TRY TO GUESS", subtitle: "THE PLANT" },
-    {
-      level: 6,
+    ...hints.map((h, i) => ({
+      level: 6 - i,
       kind: "hint",
-      hintLabel: CARD_HINTS[0].label,
-      hintValue: buildHint(CARD_HINTS[0].key, plant),
-    },
-    {
-      level: 5,
-      kind: "hint",
-      hintLabel: CARD_HINTS[1].label,
-      hintValue: buildHint(CARD_HINTS[1].key, plant),
-    },
-    {
-      level: 4,
-      kind: "hint",
-      hintLabel: CARD_HINTS[2].label,
-      hintValue: buildHint(CARD_HINTS[2].key, plant),
-    },
+      hintLabel: h.label,
+      hintValue: buildHint(h.key, plant),
+    })),
     { level: 3, kind: "cta", title: "TRY ON APHYDLE", subtitle: APHYDLE_URL },
   ];
+  if (yesterday?.plant) {
+    cards.push({
+      level: 0,
+      kind: "yesterday",
+      plant: yesterday.plant,
+      puzzleNo: yesterday.puzzleNo,
+    });
+  }
+  return cards;
 }
 
 function drawMosaic(ctx, img, level, w, h) {
@@ -76,7 +116,8 @@ function drawMosaic(ctx, img, level, w, h) {
 function drawTopBand(ctx, w, h, kind) {
   // Soft dark gradient at the top so overlay text reads on any image.
   // Hint cards extend the band so the value text below the label stays readable.
-  const ratio = kind === "hint" ? 0.42 : 0.34;
+  // Yesterday's reveal also needs the wider band (eyebrow + line + name + sci).
+  const ratio = kind === "hint" || kind === "yesterday" ? 0.42 : 0.34;
   const bandHeight = Math.round(h * ratio);
   const grad = ctx.createLinearGradient(0, 0, 0, bandHeight);
   grad.addColorStop(0, "rgba(10,10,10,0.92)");
@@ -186,7 +227,73 @@ function drawTopContent(ctx, w, h, card) {
       size: valueSize,
       letterSpacing: "2px",
     });
+  } else if (card.kind === "yesterday") {
+    drawCenteredText(ctx, "YESTERDAY", cx, Math.round(h * 0.13), {
+      color: APH_MUTED,
+      weight: 500,
+      size: Math.round(w * 0.024),
+      letterSpacing: "8px",
+    });
+    drawCenteredText(ctx, "THE ANSWER WAS", cx, Math.round(h * 0.185), {
+      color: APH_ACCENT,
+      weight: 600,
+      size: Math.round(w * 0.026),
+      letterSpacing: "5px",
+    });
+    const name = (card.plant?.commonName || "—").toUpperCase();
+    const nameSize = Math.round(w * (name.length > 22 ? 0.045 : name.length > 16 ? 0.052 : 0.062));
+    drawCenteredText(ctx, name, cx, Math.round(h * 0.28), {
+      color: APH_FG,
+      weight: 700,
+      size: nameSize,
+      letterSpacing: "3px",
+    });
+    if (card.plant?.scientificName && card.plant.scientificName !== card.plant.commonName) {
+      drawCenteredText(ctx, card.plant.scientificName.toUpperCase(), cx, Math.round(h * 0.335), {
+        color: APH_MUTED,
+        weight: 500,
+        size: Math.round(w * 0.022),
+        letterSpacing: "3px",
+      });
+    }
   }
+}
+
+// Right-edge "swipe →" affordance drawn on every card except the last so the
+// carousel reads as continuous on Instagram / X / TikTok. Vertically centered
+// with a soft circular shadow so it stays legible over any mosaic.
+function drawSwipeIndicator(ctx, w, h) {
+  const cx = w - Math.round(w * 0.06);
+  const cy = h / 2;
+  const radius = Math.round(w * 0.04);
+
+  ctx.fillStyle = "rgba(10,10,10,0.6)";
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = `${APH_ACCENT}80`;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.strokeStyle = APH_ACCENT;
+  ctx.lineWidth = Math.max(3, Math.round(w * 0.005));
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  const armX = radius * 0.38;
+  const armY = radius * 0.42;
+  ctx.beginPath();
+  ctx.moveTo(cx - armX * 0.6, cy - armY);
+  ctx.lineTo(cx + armX * 0.7, cy);
+  ctx.lineTo(cx - armX * 0.6, cy + armY);
+  ctx.stroke();
+
+  ctx.fillStyle = APH_FG;
+  ctx.font = `600 ${Math.round(w * 0.014)}px ${BRAND_FONT}`;
+  setLetterSpacing(ctx, "3px");
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText("SWIPE", cx, cy + radius + Math.round(w * 0.025));
+  setLetterSpacing(ctx, "0px");
 }
 
 function drawBrandMark(ctx, w, h, logoImg) {
@@ -236,14 +343,17 @@ function drawFrame(ctx, w, h) {
   ctx.strokeRect(inset, inset, w - inset * 2, h - inset * 2);
 }
 
-function drawCardOnto(canvas, img, logoImg, card) {
+function drawCardOnto(canvas, images, logoImg, card, position) {
   const w = canvas.width;
   const h = canvas.height;
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, w, h);
 
-  if (img) {
-    drawMosaic(ctx, img, card.level, w, h);
+  // The yesterday card pulls a different source image (yesterday's answer)
+  // and renders it clear; every other card uses today's mosaic.
+  const sourceImg = card.kind === "yesterday" ? images.yesterday : images.today;
+  if (sourceImg) {
+    drawMosaic(ctx, sourceImg, card.level, w, h);
   } else {
     ctx.fillStyle = APH_BG;
     ctx.fillRect(0, 0, w, h);
@@ -252,6 +362,9 @@ function drawCardOnto(canvas, img, logoImg, card) {
   drawTopContent(ctx, w, h, card);
   drawBrandMark(ctx, w, h, logoImg);
   drawFrame(ctx, w, h);
+  if (position && position.current < position.total - 1) {
+    drawSwipeIndicator(ctx, w, h);
+  }
 }
 
 function canvasToBytes(canvas) {
@@ -386,8 +499,10 @@ async function ensureBrandFontReady() {
 
 export function ExportScreen({ theme, onClose, plant, puzzleNo }) {
   const T = tokens(theme);
-  const cards = useMemo(() => buildCards(plant), [plant]);
+  const [yesterday, setYesterday] = useState(null);
+  const cards = useMemo(() => buildCards(plant, yesterday), [plant, yesterday]);
   const [img, setImg] = useState(() => getCachedImage(plant.imageUrl));
+  const [yesterdayImg, setYesterdayImg] = useState(null);
   const [logo, setLogo] = useState(() => getCachedImage(logoUrl));
   const [fontReady, setFontReady] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -414,6 +529,28 @@ export function ExportScreen({ theme, onClose, plant, puzzleNo }) {
     };
   }, [logo]);
 
+  // Pull yesterday's plant so the carousel can close with a "the answer was…"
+  // reveal. Skipped for puzzle #1 (no prior day exists yet).
+  useEffect(() => {
+    if (!puzzleNo || puzzleNo <= 1) return;
+    let cancelled = false;
+    loadArchivedPuzzle(puzzleNo - 1).then((res) => {
+      if (cancelled || !res?.plant) return;
+      setYesterday(res);
+      const cached = getCachedImage(res.plant.imageUrl);
+      if (cached) {
+        setYesterdayImg(cached);
+      } else if (res.plant.imageUrl) {
+        preloadImage(res.plant.imageUrl).then((loaded) => {
+          if (!cancelled) setYesterdayImg(loaded);
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [puzzleNo]);
+
   useEffect(() => {
     let cancelled = false;
     ensureBrandFontReady().then(() => {
@@ -427,26 +564,36 @@ export function ExportScreen({ theme, onClose, plant, puzzleNo }) {
   const previewRefs = useRef([]);
   useEffect(() => {
     if (!img) return;
+    const images = { today: img, yesterday: yesterdayImg };
     cards.forEach((card, i) => {
       const c = previewRefs.current[i];
-      if (c) drawCardOnto(c, img, logo, card);
+      if (c) {
+        drawCardOnto(c, images, logo, card, { current: i, total: cards.length });
+      }
     });
-  }, [img, logo, fontReady, cards]);
+  }, [img, yesterdayImg, logo, fontReady, cards]);
+
+  // Block download until every image the carousel needs is decoded — otherwise
+  // the yesterday card would render as a black square.
+  const waitingForYesterday =
+    !!yesterday?.plant?.imageUrl && !yesterdayImg;
+  const ready = !!img && !waitingForYesterday;
 
   async function handleDownloadAll() {
-    if (!img || downloading) return;
+    if (!ready || downloading) return;
     setDownloading(true);
     try {
       await ensureBrandFontReady();
       const safeId = String(plant.id).replace(/[^a-z0-9-]/gi, "-").toLowerCase();
       const stem = `aphydle-${puzzleNo}-${safeId}`;
+      const images = { today: img, yesterday: yesterdayImg };
       const files = [];
       for (let i = 0; i < cards.length; i++) {
         const card = cards[i];
         const c = document.createElement("canvas");
         c.width = EXPORT_SIZE;
         c.height = EXPORT_SIZE;
-        drawCardOnto(c, img, logo, card);
+        drawCardOnto(c, images, logo, card, { current: i, total: cards.length });
         const data = await canvasToBytes(c);
         if (!data) continue;
         files.push({ name: `${stem}-${i + 1}.png`, data });
@@ -482,9 +629,11 @@ export function ExportScreen({ theme, onClose, plant, puzzleNo }) {
           lineHeight: 1.55,
         }}
       >
-        Five 1080&times;1080 cards in the Aphydle palette — leaf mark, wordmark,
-        and Fira Code typography on every card. Download them all and post in
-        order: teaser, three hints, then the call to play.
+        {cards.length} 1080&times;1080 cards in the Aphydle palette — leaf mark,
+        wordmark, and Fira Code typography on every card. Order: teaser, three
+        random hints picked for this plant, the call to play
+        {yesterday?.plant ? ", and yesterday's reveal" : ""}. A
+        swipe arrow nudges viewers through the carousel.
       </div>
 
       <div
@@ -510,7 +659,15 @@ export function ExportScreen({ theme, onClose, plant, puzzleNo }) {
             <canvas
               ref={(el) => {
                 previewRefs.current[i] = el;
-                if (el && img) drawCardOnto(el, img, logo, card);
+                if (el && img) {
+                  drawCardOnto(
+                    el,
+                    { today: img, yesterday: yesterdayImg },
+                    logo,
+                    card,
+                    { current: i, total: cards.length },
+                  );
+                }
               }}
               width={EXPORT_SIZE}
               height={EXPORT_SIZE}
@@ -543,7 +700,7 @@ export function ExportScreen({ theme, onClose, plant, puzzleNo }) {
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button
           onClick={handleDownloadAll}
-          disabled={!img || downloading}
+          disabled={!ready || downloading}
           style={{
             flex: 1,
             minWidth: 220,
@@ -551,15 +708,17 @@ export function ExportScreen({ theme, onClose, plant, puzzleNo }) {
             background: T.accent,
             color: "#0A0A0A",
             border: "none",
-            cursor: !img || downloading ? "wait" : "pointer",
+            cursor: !ready || downloading ? "wait" : "pointer",
             fontFamily: "var(--mono)",
             fontSize: 11,
             letterSpacing: "0.16em",
             fontWeight: 700,
-            opacity: !img || downloading ? 0.6 : 1,
+            opacity: !ready || downloading ? 0.6 : 1,
           }}
         >
-          {downloading ? "PREPARING…" : "DOWNLOAD ALL · 5 IMAGES (.ZIP)"}
+          {downloading
+            ? "PREPARING…"
+            : `DOWNLOAD ALL · ${cards.length} IMAGES (.ZIP)`}
         </button>
         <button
           onClick={onClose}
