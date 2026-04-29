@@ -502,7 +502,7 @@ export async function submitResult(puzzleNo, outcome, guessCount) {
     }
     if (!playerId) {
       // No auth session: tag the result with the per-day anon id used by
-      // the analytics tables so admins can join attempts → final score.
+      // page_visits so admins can join visit → final score.
       const { getDailyAnonId } = await import("./analytics.js");
       playerId = getDailyAnonId();
     }

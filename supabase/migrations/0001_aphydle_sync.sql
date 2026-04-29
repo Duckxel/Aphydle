@@ -22,10 +22,14 @@ grant usage on schema aphydle to anon, authenticated;
 -- daily_puzzles rotation table. The runtime never queries them — daily
 -- picks live in aphydle.daily_log (below) and plant content comes from
 -- PlantSwipe's public.plants. Drop them so they don't drift out of sync.
+-- aphydle.attempts is also retired: per-guess tracking is gone and the
+-- world histogram now aggregates over aphydle.puzzle_results, which
+-- already captures the final outcome and guess count for every play.
 -- The view is dropped here too because it gets re-created lower down with
 -- a different source table; CREATE OR REPLACE VIEW can't change the
 -- column list, so the drop guarantees the new definition wins.
 drop view  if exists aphydle.daily_distribution;
+drop table if exists aphydle.attempts         cascade;
 drop table if exists aphydle.guessable_plants cascade;
 drop table if exists aphydle.daily_puzzles    cascade;
 drop table if exists aphydle.plants           cascade;
@@ -35,9 +39,9 @@ drop table if exists aphydle.plants           cascade;
 -- the host has — typically auth.uid() when the user is signed in to
 -- Supabase, otherwise a hashed Aphylia session id pushed in via a
 -- service-role function, otherwise the per-day anon id used by the
--- analytics tables below. Kept around for back-compat with hosts that
--- aggregate against it; the in-app histogram now sources from
--- aphydle.attempts (see daily_distribution below).
+-- analytics tables below. This is the single source of truth for finished
+-- plays — the in-app histogram (see daily_distribution below) and any
+-- host-side aggregations both read from this table.
 create table if not exists aphydle.puzzle_results (
     id           bigserial primary key,
     puzzle_no    integer not null,
@@ -84,15 +88,12 @@ grant usage, select  on sequence aphydle.puzzle_results_id_seq to anon, authenti
 -- lands before today's puzzle has resolved; otherwise it pins the visit
 -- to the day the user saw.
 --
--- Privacy posture (also covers attempts below):
+-- Privacy posture:
 --   * The client mints a fresh random uuid every UTC day (stored locally,
 --     never sent to the server unhashed across days). There is therefore
 --     no stable cross-day identifier, no IP capture here, no UA capture.
 --   * page_visits is write-only for anon — individual rows are visible to
---     project admins only (service role, SQL editor, dashboard). attempts
---     is readable by anon (needed by the upsert's RETURNING * and by the
---     world histogram); rows there hold nothing but an ephemeral per-day
---     uuid, the puzzle number, and a guess id, so exposing them is fine.
+--     project admins only (service role, SQL editor, dashboard).
 create table if not exists aphydle.page_visits (
     id          bigserial primary key,
     anon_id     text not null,
@@ -116,135 +117,29 @@ create policy "insert page visit"
 grant insert on aphydle.page_visits                        to anon, authenticated;
 grant usage, select on sequence aphydle.page_visits_id_seq to anon, authenticated;
 
--- ── attempts ───────────────────────────────────────────────────────────────
--- One row per (anon_id, puzzle_no) — the client upserts on that key, so
--- subsequent guesses overwrite the same row with the latest attempt_no
--- and outcome instead of stacking up one row per individual guess. Anon
--- ids rotate every UTC day, so this also pins each row to a single
--- player-day-puzzle.
---
--- attempt_no — the player's current 1-based guess count
--- guess_plant_id — last plant id they guessed
--- is_correct — true once they've solved it (locks in the final state)
-create table if not exists aphydle.attempts (
-    id              bigserial primary key,
-    anon_id         text not null,
-    puzzle_no       integer not null,
-    attempt_no      smallint not null check (attempt_no between 1 and 10),
-    guess_plant_id  text,
-    is_correct      boolean not null default false,
-    attempted_at    timestamptz not null default now(),
-    constraint attempts_anon_id_puzzle_no_key unique (anon_id, puzzle_no)
-);
-
--- Self-heal databases that were created under an earlier schema where the
--- unique key was (anon_id, puzzle_no, attempt_no). The runtime upsert keys
--- on (anon_id, puzzle_no) only — without a matching constraint PostgREST
--- 400s every attempts write and the world histogram stays empty.
-alter table aphydle.attempts
-    drop constraint if exists attempts_anon_id_puzzle_no_attempt_no_key;
-
--- The old shape stored one row per individual guess, so a single session
--- can have several rows with the same (anon_id, puzzle_no). Adding the
--- new unique constraint would fail on those duplicates, so collapse them
--- first: keep the highest attempt_no (the final state) and drop the rest.
-delete from aphydle.attempts a
-using aphydle.attempts b
-where a.anon_id = b.anon_id
-  and a.puzzle_no = b.puzzle_no
-  and (
-      a.attempt_no < b.attempt_no
-      or (a.attempt_no = b.attempt_no and a.id < b.id)
-  );
-
-do $$
-begin
-    if not exists (
-        select 1
-        from pg_constraint c
-        join pg_class t on t.oid = c.conrelid
-        join pg_namespace n on n.oid = t.relnamespace
-        where n.nspname = 'aphydle'
-          and t.relname = 'attempts'
-          and c.conname = 'attempts_anon_id_puzzle_no_key'
-    ) then
-        alter table aphydle.attempts
-            add constraint attempts_anon_id_puzzle_no_key
-            unique (anon_id, puzzle_no);
-    end if;
-end $$;
-
-create index if not exists attempts_puzzle_idx on aphydle.attempts (puzzle_no);
-create index if not exists attempts_anon_idx   on aphydle.attempts (anon_id);
-
-alter table aphydle.attempts enable row level security;
-
-drop policy if exists "insert attempt" on aphydle.attempts;
-create policy "insert attempt"
-    on aphydle.attempts
-    for insert
-    to anon, authenticated
-    with check (
-        anon_id is not null
-        and length(anon_id) between 8 and 128
-        and attempt_no between 1 and 10
-    );
-
-drop policy if exists "update attempt" on aphydle.attempts;
-create policy "update attempt"
-    on aphydle.attempts
-    for update
-    to anon, authenticated
-    using (true)
-    with check (
-        anon_id is not null
-        and length(anon_id) between 8 and 128
-        and attempt_no between 1 and 10
-    );
-
--- Read access is required for two reasons:
---   1. supabase-js .upsert() defaults to Prefer: return=representation, so
---      PostgREST runs INSERT ... ON CONFLICT DO UPDATE RETURNING *. Without
---      a SELECT grant + policy, every write 401s with 42501 even though the
---      row was inserted, and the client's reportFailure() fires on every
---      guess.
---   2. The world histogram (aphydle.daily_distribution below) aggregates
---      over this table. Granting select directly keeps it working under
---      both classic and security_invoker views.
-drop policy if exists "read attempts" on aphydle.attempts;
-create policy "read attempts"
-    on aphydle.attempts
-    for select
-    to anon, authenticated
-    using (true);
-
-grant select, insert, update on aphydle.attempts         to anon, authenticated;
-grant usage, select  on sequence aphydle.attempts_id_seq to anon, authenticated;
-
 -- ── daily_distribution view ─────────────────────────────────────────────────
--- Buckets 1..10 are wins by attempt_no; bucket_lost is the loss tally
--- (players who used all 10 attempts without solving). The finish screen
--- reads this directly to draw the histogram. Sourced from aphydle.attempts
--- because that's the table the runtime actually writes to on every play —
--- aphydle.puzzle_results only fills in on hosts that finalise results.
--- Mid-game rows (attempt_no < 10 and not is_correct) are excluded so the
--- bars don't shift under the player's marker before they finish.
+-- Buckets 1..10 are wins by guess_count; bucket_lost is the loss tally
+-- (players who used all 10 guesses without solving). The finish screen
+-- reads this directly to draw the histogram. Sourced from
+-- aphydle.puzzle_results, which holds one finished row per (puzzle,
+-- player) — mid-game state is tracked locally and never written here, so
+-- the bars never shift under the player's marker before they finish.
 create or replace view aphydle.daily_distribution as
 select
     puzzle_no,
-    sum(case when is_correct and attempt_no = 1  then 1 else 0 end)::int as bucket_1,
-    sum(case when is_correct and attempt_no = 2  then 1 else 0 end)::int as bucket_2,
-    sum(case when is_correct and attempt_no = 3  then 1 else 0 end)::int as bucket_3,
-    sum(case when is_correct and attempt_no = 4  then 1 else 0 end)::int as bucket_4,
-    sum(case when is_correct and attempt_no = 5  then 1 else 0 end)::int as bucket_5,
-    sum(case when is_correct and attempt_no = 6  then 1 else 0 end)::int as bucket_6,
-    sum(case when is_correct and attempt_no = 7  then 1 else 0 end)::int as bucket_7,
-    sum(case when is_correct and attempt_no = 8  then 1 else 0 end)::int as bucket_8,
-    sum(case when is_correct and attempt_no = 9  then 1 else 0 end)::int as bucket_9,
-    sum(case when is_correct and attempt_no = 10 then 1 else 0 end)::int as bucket_10,
-    sum(case when not is_correct and attempt_no = 10 then 1 else 0 end)::int as bucket_lost,
-    sum(case when is_correct or attempt_no = 10 then 1 else 0 end)::int      as total_played
-from aphydle.attempts
+    sum(case when outcome = 'won'  and guess_count = 1  then 1 else 0 end)::int as bucket_1,
+    sum(case when outcome = 'won'  and guess_count = 2  then 1 else 0 end)::int as bucket_2,
+    sum(case when outcome = 'won'  and guess_count = 3  then 1 else 0 end)::int as bucket_3,
+    sum(case when outcome = 'won'  and guess_count = 4  then 1 else 0 end)::int as bucket_4,
+    sum(case when outcome = 'won'  and guess_count = 5  then 1 else 0 end)::int as bucket_5,
+    sum(case when outcome = 'won'  and guess_count = 6  then 1 else 0 end)::int as bucket_6,
+    sum(case when outcome = 'won'  and guess_count = 7  then 1 else 0 end)::int as bucket_7,
+    sum(case when outcome = 'won'  and guess_count = 8  then 1 else 0 end)::int as bucket_8,
+    sum(case when outcome = 'won'  and guess_count = 9  then 1 else 0 end)::int as bucket_9,
+    sum(case when outcome = 'won'  and guess_count = 10 then 1 else 0 end)::int as bucket_10,
+    sum(case when outcome = 'lost'                      then 1 else 0 end)::int as bucket_lost,
+    count(*)::int                                                               as total_played
+from aphydle.puzzle_results
 group by puzzle_no;
 
 grant select on aphydle.daily_distribution to anon, authenticated;
@@ -388,8 +283,8 @@ revoke all on function aphydle.ensure_daily_log() from public;
 -- src/lib/data.js#recordDailyPick still stamps daily_log on the first
 -- visit each day, so the cron job is a backstop, not a hard requirement.
 -- Without this guard, a missing pg_cron on Supabase Cloud aborts the
--- whole migration and the grants/policies for aphydle.attempts never
--- run, which is what was 401-ing every analytics write.
+-- whole migration and the grants/policies for the analytics tables
+-- never run.
 do $$
 begin
     if not exists (

@@ -41,31 +41,24 @@ each file in `supabase/migrations/` in order, then run them.
 | `aphydle.ensure_daily_log()`    | SECURITY DEFINER fn that picks the rotation plant for today and inserts it; bypasses RLS. |
 | `cron` job `aphydle_ensure_daily_log` | pg_cron schedule (`5 0 * * *` UTC) that calls `ensure_daily_log()` so today's row exists before any client visits. |
 | `aphydle.page_visits`           | One row per app load. Anon insert / admin-only select. Useful for daily active counts. |
-| `aphydle.attempts`              | One row per individual guess (puzzle + attempt no + plant id + correctness). Anon insert / admin-only select. Joins to `puzzle_results` via `(puzzle_no, anon_id ↔ player_id)`. |
 
 ### Anonymized analytics
 
-The `page_visits` and `attempts` tables are tagged with a fresh random uuid
-that the client mints every UTC day and stores locally — no IP, no user
-agent, no cross-day identifier. RLS lets `anon` insert but never select,
-so individual rows are only visible to project admins (service role / SQL
-editor / dashboard). Useful queries:
+`page_visits` is tagged with a fresh random uuid that the client mints
+every UTC day and stores locally — no IP, no user agent, no cross-day
+identifier. RLS lets `anon` insert but never select, so individual rows
+are only visible to project admins (service role / SQL editor /
+dashboard). Useful queries:
 
 ```sql
--- daily unique players + total guesses
+-- daily unique players + win rate
 select puzzle_no,
-       count(distinct anon_id) as players,
-       count(*)                as guesses
-from aphydle.attempts
+       count(*)                                            as plays,
+       sum(case when outcome = 'won' then 1 else 0 end)    as wins,
+       avg(guess_count) filter (where outcome = 'won')     as avg_guesses_to_win
+from aphydle.puzzle_results
 group by puzzle_no
 order by puzzle_no desc;
-
--- most frequent wrong guesses by puzzle
-select puzzle_no, guess_plant_id, count(*) as picks
-from aphydle.attempts
-where is_correct = false and guess_plant_id is not null
-group by puzzle_no, guess_plant_id
-order by puzzle_no desc, picks desc;
 
 -- visits vs. completions per puzzle
 select v.puzzle_no,
@@ -91,6 +84,7 @@ order by v.puzzle_no desc;
 - `aphydle.plants` — the runtime reads `public.plants` from PlantSwipe instead.
 - `aphydle.guessable_plants` — autocomplete is served from `public.plants`.
 - `aphydle.daily_puzzles` — replaced by the simpler `aphydle.daily_log`.
+- `aphydle.attempts` — per-guess tracking is gone; the world histogram now aggregates over `aphydle.puzzle_results`.
 
 These drops cascade, which strips the legacy
 `puzzle_results.puzzle_no → daily_puzzles.puzzle_no` foreign key. Existing rows
@@ -98,10 +92,10 @@ in `puzzle_results` are preserved; only the constraint goes away.
 
 ## Troubleshooting
 
-**`POST /rest/v1/attempts … 401 (Unauthorized)` on every guess**, and the
-finish-screen world histogram shows only the local player. The migration ran
-successfully but the analytics writes still fail. Three things to check, in
-order:
+**`POST /rest/v1/puzzle_results … 401 (Unauthorized)` at game end**, and
+the finish-screen world histogram shows only the local player. The
+migration ran successfully but the result writes still fail. Three things
+to check, in order:
 
 1. **`aphydle` is in the project's exposed schemas list.** Supabase →
    Project Settings → API → "Exposed schemas". `aphydle` must be in the

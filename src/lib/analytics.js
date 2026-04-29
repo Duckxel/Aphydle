@@ -1,10 +1,10 @@
 // Anonymized product analytics.
 //
 // The client mints a fresh random uuid every UTC day, persisted to
-// localStorage so attempts/results from the same browser-day join to a
-// single row, but cross-day correlation is impossible by construction.
-// All writes are best-effort: if Supabase isn't configured or a write
-// fails, we silently no-op so the game never breaks.
+// localStorage so the per-day visit and the final puzzle result share an
+// id, but cross-day correlation is impossible by construction. All writes
+// are best-effort: if Supabase isn't configured or a write fails, we
+// silently no-op so the game never breaks.
 
 import { supabase, isSupabaseConfigured } from "./supabase.js";
 
@@ -56,8 +56,8 @@ function aphSchema() {
 }
 
 let visitTrackedFor = null;
-// One log per process per table — analytics fires on every guess, so
-// without de-duping a misconfigured project would flood the console.
+// One log per process per table so a misconfigured project doesn't flood
+// the console.
 const loggedFailures = new Set();
 
 function reportFailure(table, error) {
@@ -91,34 +91,5 @@ export async function trackVisit(puzzleNo) {
     if (error) reportFailure("page_visits", error);
   } catch (e) {
     reportFailure("page_visits", e);
-  }
-}
-
-export async function trackAttempt({ puzzleNo, attemptNo, plantId, isCorrect }) {
-  if (!isSupabaseConfigured) return;
-  if (puzzleNo == null || !attemptNo) return;
-  const anonId = getDailyAnonId();
-  if (!anonId) return;
-  // Anon ids rotate every UTC day, so (anon_id, puzzle_no) already pins the
-  // row to a single player-day-puzzle. Upsert on that key so each subsequent
-  // attempt overwrites the same row with the latest count + outcome instead
-  // of stacking up one row per attempt.
-  try {
-    const { error } = await aphSchema()
-      .from("attempts")
-      .upsert(
-        {
-          anon_id: anonId,
-          puzzle_no: puzzleNo,
-          attempt_no: attemptNo,
-          guess_plant_id: plantId ?? null,
-          is_correct: !!isCorrect,
-          attempted_at: new Date().toISOString(),
-        },
-        { onConflict: "anon_id,puzzle_no" },
-      );
-    if (error) reportFailure("attempts", error);
-  } catch (e) {
-    reportFailure("attempts", e);
   }
 }
