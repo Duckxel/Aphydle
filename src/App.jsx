@@ -28,6 +28,19 @@ function isExportPath() {
   return p === "/export";
 }
 
+// Maps the entry URL to an initial in-app intent. `/puzzle` opens the Archive
+// sheet over today's game, and `/puzzle/<n>` starts (or, if already finished,
+// just shows the archive entry for) puzzle n. The URL is rewritten to `/` on
+// mount so a reload doesn't keep re-triggering the same intent.
+function readInitialRoute() {
+  if (typeof window === "undefined") return { type: "home" };
+  const p = window.location.pathname.replace(/\/+$/, "");
+  if (p === "/puzzle") return { type: "archive" };
+  const m = p.match(/^\/puzzle\/(\d+)$/);
+  if (m) return { type: "puzzle", puzzleNo: parseInt(m[1], 10) };
+  return { type: "home" };
+}
+
 // Standalone admin entry — owns its own theme state so the host App's
 // hooks never run on the export path. Switching paths requires a full
 // reload (no client-side router), so the choice between roots is stable
@@ -62,10 +75,39 @@ export default function App() {
   const [now, setNow] = useState(() => new Date());
   const dateLabel = useMemo(() => formatPuzzleDate(now), [now]);
 
+  // Resolved once on mount — `/puzzle` and `/puzzle/<n>` are entry-point
+  // URLs, not routes the SPA navigates between.
+  const initialRoute = useMemo(readInitialRoute, []);
+
   // When set, replaces today's puzzle with an archived one — the Archive
   // screen calls onPlayPuzzle() to start a replay session for any puzzle
-  // the player hasn't completed yet.
-  const [archivePuzzleNo, setArchivePuzzleNo] = useState(null);
+  // the player hasn't completed yet. Seeded from `/puzzle/<n>` when the
+  // requested puzzle is unplayed; otherwise we fall back to opening the
+  // Archive sheet so the player can see (but not replay) it.
+  const [archivePuzzleNo, setArchivePuzzleNo] = useState(() => {
+    if (initialRoute.type === "puzzle" && !isPuzzlePlayed(initialRoute.puzzleNo)) {
+      return initialRoute.puzzleNo;
+    }
+    return null;
+  });
+
+  // One-shot signal that opens the Archive overlay on first render of the
+  // GameScreen / FinishScreen. Used for `/puzzle` and for `/puzzle/<n>` when
+  // n is already finished (replay is locked, so we surface the archive list).
+  const initialOverlay =
+    initialRoute.type === "archive" ||
+    (initialRoute.type === "puzzle" && isPuzzlePlayed(initialRoute.puzzleNo))
+      ? "archive"
+      : null;
+
+  // Strip the entry path so refreshing the page doesn't keep re-firing the
+  // same intent (would re-open the archive every reload, or restart a replay
+  // the user already exited).
+  useEffect(() => {
+    if (initialRoute.type !== "home" && typeof window !== "undefined") {
+      window.history.replaceState({}, "", "/");
+    }
+  }, [initialRoute]);
 
   // The active puzzle (today's by default, or an archive replay). Until
   // it resolves we render nothing — the whole app is gated on an answer.
@@ -163,6 +205,7 @@ export default function App() {
         onPlayPuzzle={handlePlayPuzzle}
         isArchiveSession={archivePuzzleNo != null}
         onChangeTheme={setTheme}
+        initialOverlay={initialOverlay}
       />
     );
   }
@@ -178,6 +221,7 @@ export default function App() {
       onPlayPuzzle={handlePlayPuzzle}
       isArchiveSession={archivePuzzleNo != null}
       onChangeTheme={setTheme}
+      initialOverlay={initialOverlay}
     />
   );
 }

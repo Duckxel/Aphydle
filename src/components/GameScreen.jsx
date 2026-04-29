@@ -25,9 +25,10 @@ export function GameScreen({
   onPlayPuzzle,
   isArchiveSession = false,
   onChangeTheme,
+  initialOverlay = null,
 }) {
   const T = tokens(theme);
-  const [overlay, setOverlay] = useState(null);
+  const [overlay, setOverlay] = useState(initialOverlay);
 
   const attempts = state.guesses.length;
   const attemptsLeft = 10 - attempts;

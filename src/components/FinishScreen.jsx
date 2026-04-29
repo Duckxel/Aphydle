@@ -29,12 +29,14 @@ export function FinishScreen({
   onPlayPuzzle,
   isArchiveSession = false,
   onChangeTheme,
+  initialOverlay = null,
 }) {
   const T = tokens(theme);
   const [dist, setDist] = useState(null);
   // The export overlay is intentionally not exposed via any visible control.
   // Only people who know the secret URL (?export=open) can open it.
   const [overlay, setOverlay] = useState(() => {
+    if (initialOverlay) return initialOverlay;
     if (typeof window === "undefined") return null;
     const params = new URLSearchParams(window.location.search);
     if (params.get("export") === "open") return "export";

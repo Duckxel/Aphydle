@@ -4,8 +4,6 @@ import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { renderPuzzlePage, renderPuzzleIndexPage } from "./seo/render.mjs";
-import { fetchPuzzleArchive } from "./seo/puzzle-fetch.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -60,31 +58,6 @@ function seoArtifactsPlugin() {
   let basePath = process.env.VITE_APP_BASE_PATH || "/";
   if (!basePath.endsWith("/")) basePath += "/";
 
-  // Past-puzzle archive populated once at build start. Empty when env vars
-  // aren't set, the network is down, or the schema is unreachable — in that
-  // case we just emit no /puzzle/<n>/ pages and the build still ships.
-  let archive = [];
-  let archiveFetched = false;
-
-  // Lightweight per-process cache so dev middleware doesn't hit Supabase
-  // on every request. Refreshes on a TTL so newly-played puzzles surface
-  // without a server restart.
-  let devArchive = [];
-  let devArchiveAt = 0;
-  const DEV_TTL_MS = 60_000;
-
-  async function getArchiveForDev() {
-    const now = Date.now();
-    if (now - devArchiveAt < DEV_TTL_MS && devArchive.length > 0) return devArchive;
-    try {
-      devArchive = await fetchPuzzleArchive({ logger: { info: () => {}, warn: () => {} } });
-      devArchiveAt = now;
-    } catch {
-      // keep stale cache on error
-    }
-    return devArchive;
-  }
-
   const robotsTxt = () =>
     [
       "# Aphydle — daily plant guessing game",
@@ -100,30 +73,11 @@ function seoArtifactsPlugin() {
       "",
     ].join("\n");
 
-  const sitemapXml = (archiveOverride) => {
-    const archiveForMap = archiveOverride ?? archive;
+  const sitemapXml = () => {
     const lastmod = (process.env.VITE_APP_BUILD_TIMESTAMP || new Date().toISOString()).slice(0, 10);
     const urls = [
       { loc: `${SITE_URL}${basePath}`, changefreq: "daily", priority: "1.0", lastmod },
     ];
-    if (archiveForMap.length > 0) {
-      urls.push({
-        loc: `${SITE_URL}${basePath}puzzle/`,
-        changefreq: "daily",
-        priority: "0.8",
-        lastmod,
-      });
-      for (const p of archiveForMap) {
-        urls.push({
-          loc: `${SITE_URL}${basePath}puzzle/${p.puzzleNo}/`,
-          // Past puzzles don't change. The lastmod stays at puzzle_date so
-          // crawlers know they've already indexed the final state.
-          changefreq: "yearly",
-          priority: "0.5",
-          lastmod: p.puzzleDate || lastmod,
-        });
-      }
-    }
     const body = urls
       .map(
         (u) =>
@@ -143,40 +97,12 @@ function seoArtifactsPlugin() {
       .replaceAll("%VITE_APP_SITE_URL%", SITE_URL)
       .replaceAll("%VITE_APP_OG_IMAGE%", OG_IMAGE);
 
-  function findNeighbours(puzzleNo, list) {
-    const sorted = [...list].sort((a, b) => a.puzzleNo - b.puzzleNo);
-    const idx = sorted.findIndex((p) => p.puzzleNo === puzzleNo);
-    if (idx < 0) return { prev: null, next: null };
-    return {
-      prev: idx > 0 ? sorted[idx - 1] : null,
-      next: idx < sorted.length - 1 ? sorted[idx + 1] : null,
-    };
-  }
-
   return {
     name: "aphydle-seo-artifacts",
     apply: () => true,
     configResolved(cfg) {
       basePath = cfg.base || "/";
       if (!basePath.endsWith("/")) basePath += "/";
-    },
-    async buildStart() {
-      // Only fetch on the actual production build pass. Dev uses the
-      // middleware path with its own TTL cache.
-      if (archiveFetched) return;
-      try {
-        archive = await fetchPuzzleArchive({ logger: this });
-      } catch (err) {
-        this.warn?.(`[seo] puzzle archive fetch failed: ${err?.message || err}`);
-        archive = [];
-      }
-      archiveFetched = true;
-      const n = archive.length;
-      this.info?.(
-        n === 0
-          ? "[seo] no past puzzles found — /puzzle/* pages will not be emitted"
-          : `[seo] emitting ${n} past-puzzle archive page${n === 1 ? "" : "s"}`,
-      );
     },
     transformIndexHtml: {
       order: "pre",
@@ -189,60 +115,13 @@ function seoArtifactsPlugin() {
         res.end(body);
       };
       server.middlewares.use("/robots.txt", (_req, res) => text(res, "text/plain; charset=utf-8", robotsTxt()));
-      server.middlewares.use("/sitemap.xml", async (_req, res) => {
-        const a = await getArchiveForDev();
-        text(res, "application/xml; charset=utf-8", sitemapXml(a));
-      });
-
-      // Render the archive index + each past puzzle on demand so we can
-      // QA the exact HTML Google will see without running a full build.
-      server.middlewares.use(async (req, res, next) => {
-        if (!req.url) return next();
-        const url = req.url.split("?")[0];
-        if (url === "/puzzle" || url === "/puzzle/") {
-          const a = await getArchiveForDev();
-          return text(
-            res,
-            "text/html; charset=utf-8",
-            renderPuzzleIndexPage({ puzzles: a, siteUrl: SITE_URL, base: basePath, ogImage: OG_IMAGE }),
-            "no-store",
-          );
-        }
-        const m = url.match(/^\/puzzle\/(\d+)\/?$/);
-        if (m) {
-          const puzzleNo = parseInt(m[1], 10);
-          const a = await getArchiveForDev();
-          const puzzle = a.find((p) => p.puzzleNo === puzzleNo);
-          if (!puzzle) return next();
-          const { prev, next: nx } = findNeighbours(puzzleNo, a);
-          return text(
-            res,
-            "text/html; charset=utf-8",
-            renderPuzzlePage({ puzzle, prev, next: nx, siteUrl: SITE_URL, base: basePath, ogImage: OG_IMAGE }),
-            "no-store",
-          );
-        }
-        return next();
-      });
+      server.middlewares.use("/sitemap.xml", (_req, res) =>
+        text(res, "application/xml; charset=utf-8", sitemapXml()),
+      );
     },
     generateBundle() {
       this.emitFile({ type: "asset", fileName: "robots.txt", source: robotsTxt() });
       this.emitFile({ type: "asset", fileName: "sitemap.xml", source: sitemapXml() });
-      if (archive.length > 0) {
-        this.emitFile({
-          type: "asset",
-          fileName: "puzzle/index.html",
-          source: renderPuzzleIndexPage({ puzzles: archive, siteUrl: SITE_URL, base: basePath, ogImage: OG_IMAGE }),
-        });
-        for (const puzzle of archive) {
-          const { prev, next } = findNeighbours(puzzle.puzzleNo, archive);
-          this.emitFile({
-            type: "asset",
-            fileName: `puzzle/${puzzle.puzzleNo}/index.html`,
-            source: renderPuzzlePage({ puzzle, prev, next, siteUrl: SITE_URL, base: basePath, ogImage: OG_IMAGE }),
-          });
-        }
-      }
     },
   };
 }
@@ -287,9 +166,7 @@ function healthEndpointPlugin() {
 
 export default defineConfig(({ mode }) => {
   // loadEnv reads .env, .env.local, .env.<mode>, .env.<mode>.local from
-  // the project root. Empty-prefix means "load every var", not just VITE_*,
-  // so seo/puzzle-fetch.mjs can read VITE_SUPABASE_URL via process.env at
-  // buildStart() time the same way client code reads it via import.meta.env.
+  // the project root. Empty-prefix means "load every var", not just VITE_*.
   const env = loadEnv(mode, process.cwd(), "");
   for (const [k, v] of Object.entries(env)) {
     if (process.env[k] === undefined) process.env[k] = v;
