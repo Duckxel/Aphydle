@@ -23,11 +23,11 @@ grant usage on schema aphydle to anon, authenticated;
 -- picks live in aphydle.daily_log (below) and plant content comes from
 -- PlantSwipe's public.plants. Drop them so they don't drift out of sync.
 -- aphydle.attempts is also retired: per-guess tracking is gone and the
--- world histogram now aggregates over aphydle.puzzle_results, which
--- already captures the final outcome and guess count for every play.
--- The view is dropped here too because it gets re-created lower down with
--- a different source table; CREATE OR REPLACE VIEW can't change the
--- column list, so the drop guarantees the new definition wins.
+-- world histogram now aggregates aphydle.puzzle_results client-side.
+-- aphydle.daily_distribution is retired for the same reason — there's no
+-- need for a server-side aggregate over a table the client can already
+-- group on its own, and keeping the view around just creates a second
+-- source of truth that drifts when its definition is stale.
 drop view  if exists aphydle.daily_distribution;
 drop table if exists aphydle.attempts         cascade;
 drop table if exists aphydle.guessable_plants cascade;
@@ -40,8 +40,9 @@ drop table if exists aphydle.plants           cascade;
 -- Supabase, otherwise a hashed Aphylia session id pushed in via a
 -- service-role function, otherwise the per-day anon id used by the
 -- analytics tables below. This is the single source of truth for finished
--- plays — the in-app histogram (see daily_distribution below) and any
--- host-side aggregations both read from this table.
+-- plays — the in-app histogram (the client groups this table directly,
+-- see loadDistribution() in src/lib/data.js) and any host-side
+-- aggregations both read from here.
 create table if not exists aphydle.puzzle_results (
     id           bigserial primary key,
     puzzle_no    integer not null,
@@ -116,33 +117,6 @@ create policy "insert page visit"
 
 grant insert on aphydle.page_visits                        to anon, authenticated;
 grant usage, select on sequence aphydle.page_visits_id_seq to anon, authenticated;
-
--- ── daily_distribution view ─────────────────────────────────────────────────
--- Buckets 1..10 are wins by guess_count; bucket_lost is the loss tally
--- (players who used all 10 guesses without solving). The finish screen
--- reads this directly to draw the histogram. Sourced from
--- aphydle.puzzle_results, which holds one finished row per (puzzle,
--- player) — mid-game state is tracked locally and never written here, so
--- the bars never shift under the player's marker before they finish.
-create or replace view aphydle.daily_distribution as
-select
-    puzzle_no,
-    sum(case when outcome = 'won'  and guess_count = 1  then 1 else 0 end)::int as bucket_1,
-    sum(case when outcome = 'won'  and guess_count = 2  then 1 else 0 end)::int as bucket_2,
-    sum(case when outcome = 'won'  and guess_count = 3  then 1 else 0 end)::int as bucket_3,
-    sum(case when outcome = 'won'  and guess_count = 4  then 1 else 0 end)::int as bucket_4,
-    sum(case when outcome = 'won'  and guess_count = 5  then 1 else 0 end)::int as bucket_5,
-    sum(case when outcome = 'won'  and guess_count = 6  then 1 else 0 end)::int as bucket_6,
-    sum(case when outcome = 'won'  and guess_count = 7  then 1 else 0 end)::int as bucket_7,
-    sum(case when outcome = 'won'  and guess_count = 8  then 1 else 0 end)::int as bucket_8,
-    sum(case when outcome = 'won'  and guess_count = 9  then 1 else 0 end)::int as bucket_9,
-    sum(case when outcome = 'won'  and guess_count = 10 then 1 else 0 end)::int as bucket_10,
-    sum(case when outcome = 'lost'                      then 1 else 0 end)::int as bucket_lost,
-    count(*)::int                                                               as total_played
-from aphydle.puzzle_results
-group by puzzle_no;
-
-grant select on aphydle.daily_distribution to anon, authenticated;
 
 -- ── daily_log ──────────────────────────────────────────────────────────────
 -- Append-only record of which plant was served on which puzzle day. The

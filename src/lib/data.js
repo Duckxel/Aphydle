@@ -31,10 +31,11 @@ import {
   appendLocalDailyLog,
 } from "./storage.js";
 
-// Aphydle-specific tables (puzzle_results, daily_distribution) live in a
-// separate `aphydle` schema. When that schema isn't exposed in the project,
-// these queries fail and the relevant features (server-side stats, result
-// logging) silently degrade — the core game still runs from public.plants.
+// Aphydle-specific tables (puzzle_results, page_visits, daily_log) live in
+// a separate `aphydle` schema. When that schema isn't exposed in the
+// project, these queries fail and the relevant features (server-side
+// stats, result logging) silently degrade — the core game still runs
+// from public.plants.
 function aph() {
   if (!isSupabaseConfigured) return null;
   if (typeof supabase.schema === "function") return supabase.schema("aphydle");
@@ -451,11 +452,14 @@ let loggedDistributionError = false;
 export async function loadDistribution(puzzleNo) {
   if (!isSupabaseConfigured || !puzzleNo) return null;
   try {
+    // Pull the raw finished rows for this puzzle and bucket them on the
+    // client. There's at most one row per player per day, so the payload
+    // is tiny — and reading the source table directly avoids the drift
+    // that a cached server-side aggregate view would introduce.
     const { data, error } = await aph()
-      .from("daily_distribution")
-      .select("*")
-      .eq("puzzle_no", puzzleNo)
-      .maybeSingle();
+      .from("puzzle_results")
+      .select("outcome,guess_count")
+      .eq("puzzle_no", puzzleNo);
     if (error) {
       if (!loggedDistributionError) {
         loggedDistributionError = true;
@@ -464,27 +468,24 @@ export async function loadDistribution(puzzleNo) {
         // chart silently falls back to showing only the local player.
         // eslint-disable-next-line no-console
         console.warn(
-          `[Aphydle] aphydle.daily_distribution read rejected by Supabase. ` +
+          `[Aphydle] aphydle.puzzle_results read rejected by Supabase. ` +
             `code=${error.code || "?"} message=${error.message || "?"}`,
           error,
         );
       }
       return null;
     }
-    if (!data) return null;
-    return [
-      data.bucket_1 || 0,
-      data.bucket_2 || 0,
-      data.bucket_3 || 0,
-      data.bucket_4 || 0,
-      data.bucket_5 || 0,
-      data.bucket_6 || 0,
-      data.bucket_7 || 0,
-      data.bucket_8 || 0,
-      data.bucket_9 || 0,
-      data.bucket_10 || 0,
-      data.bucket_lost || 0,
-    ];
+    if (!Array.isArray(data)) return null;
+    const buckets = Array(11).fill(0);
+    for (const row of data) {
+      if (row.outcome === "won") {
+        const n = Number(row.guess_count);
+        if (n >= 1 && n <= 10) buckets[n - 1] += 1;
+      } else if (row.outcome === "lost") {
+        buckets[10] += 1;
+      }
+    }
+    return buckets;
   } catch {
     return null;
   }

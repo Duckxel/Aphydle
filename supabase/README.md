@@ -35,8 +35,7 @@ each file in `supabase/migrations/` in order, then run them.
 | Object                          | Purpose                                                                   |
 | ------------------------------- | ------------------------------------------------------------------------- |
 | `aphydle` schema                | Namespace for everything below; isolates Aphydle from the host project.   |
-| `aphydle.puzzle_results`        | Per-(puzzle, player) outcome rows with RLS. Authenticated users insert under their `auth.uid()`; unauthenticated players insert under their per-day anon id. |
-| `aphydle.daily_distribution`    | View aggregating `puzzle_results` into the histogram on the finish screen.|
+| `aphydle.puzzle_results`        | Per-(puzzle, player) outcome rows with RLS. Authenticated users insert under their `auth.uid()`; unauthenticated players insert under their per-day anon id. The finish-screen histogram aggregates this table directly on the client. |
 | `aphydle.daily_log`             | Append-only record of which `plant_id` was served on which puzzle day.    |
 | `aphydle.ensure_daily_log()`    | SECURITY DEFINER fn that picks the rotation plant for today and inserts it; bypasses RLS. |
 | `cron` job `aphydle_ensure_daily_log` | pg_cron schedule (`5 0 * * *` UTC) that calls `ensure_daily_log()` so today's row exists before any client visits. |
@@ -85,6 +84,7 @@ order by v.puzzle_no desc;
 - `aphydle.guessable_plants` — autocomplete is served from `public.plants`.
 - `aphydle.daily_puzzles` — replaced by the simpler `aphydle.daily_log`.
 - `aphydle.attempts` — per-guess tracking is gone; the world histogram now aggregates over `aphydle.puzzle_results`.
+- `aphydle.daily_distribution` — view retired; the client groups `puzzle_results` directly so there's no second source of truth to drift.
 
 These drops cascade, which strips the legacy
 `puzzle_results.puzzle_no → daily_puzzles.puzzle_no` foreign key. Existing rows
