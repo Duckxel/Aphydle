@@ -4,6 +4,8 @@ import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { fetchPuzzleArchive } from "./seo/puzzle-fetch.mjs";
+import { buildPuzzleShell, buildArchiveShell } from "./seo/puzzle-pages.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -51,7 +53,13 @@ let DEV_HOST = process.env.APHYDLE_DEV_HOST || "127.0.0.1";
 // JSON-LD point at the configured deploy host. Vite only auto-replaces
 // HTML env tokens that resolve through import.meta.env, so we do the
 // substitution here to keep a sensible default when no env is set.
-function seoArtifactsPlugin() {
+//
+// `puzzleListRef` is a thunk that returns the most recently fetched
+// puzzle archive (puzzle_no + puzzle_date). It is called lazily so the
+// asynchronous Supabase fetch can run alongside config resolution
+// without blocking module load. Empty list → only the home URL is
+// emitted, just like before.
+function seoArtifactsPlugin(puzzleListRef) {
   // Resolved at configResolved() so we honour the user's `base` (sub-path
   // hosting). `/` default keeps dev middleware functional before Vite has
   // a chance to call us.
@@ -75,9 +83,26 @@ function seoArtifactsPlugin() {
 
   const sitemapXml = () => {
     const lastmod = (process.env.VITE_APP_BUILD_TIMESTAMP || new Date().toISOString()).slice(0, 10);
+    const puzzles = (puzzleListRef && puzzleListRef()) || [];
     const urls = [
       { loc: `${SITE_URL}${basePath}`, changefreq: "daily", priority: "1.0", lastmod },
     ];
+    if (puzzles.length > 0) {
+      urls.push({
+        loc: `${SITE_URL}/puzzle/`,
+        changefreq: "daily",
+        priority: "0.7",
+        lastmod,
+      });
+      for (const p of puzzles) {
+        urls.push({
+          loc: `${SITE_URL}/puzzle/${p.puzzleNo}/`,
+          changefreq: "yearly",
+          priority: "0.5",
+          lastmod: p.puzzleDate,
+        });
+      }
+    }
     const body = urls
       .map(
         (u) =>
@@ -126,6 +151,76 @@ function seoArtifactsPlugin() {
   };
 }
 
+// Emits per-puzzle SEO shells under /puzzle/<n>/index.html and a /puzzle/
+// archive landing. Runs in `closeBundle` (after Vite has finished writing
+// its own assets) so we can read the freshly transformed dist/index.html
+// off disk — that way every shell references the same hashed asset
+// bundle Vite just produced. Skipped entirely when the puzzle list is
+// empty (no Supabase env in dev / fresh checkout).
+function puzzlePagesPlugin(puzzleListRef) {
+  let outDir = "dist";
+  return {
+    name: "aphydle-puzzle-pages",
+    apply: "build",
+    enforce: "post",
+    configResolved(cfg) {
+      outDir = cfg.build?.outDir || "dist";
+    },
+    async closeBundle() {
+      const puzzles = (puzzleListRef && puzzleListRef()) || [];
+      if (puzzles.length === 0) return;
+
+      const fs = await import("node:fs/promises");
+      const path = await import("node:path");
+      const root = process.cwd();
+      const indexPath = path.resolve(root, outDir, "index.html");
+
+      let baseHtml;
+      try {
+        baseHtml = await fs.readFile(indexPath, "utf8");
+      } catch (err) {
+        this.warn(`[seo] could not read ${indexPath}: ${err.message} — skipping puzzle shells`);
+        return;
+      }
+
+      const sorted = puzzles.slice().sort((a, b) => a.puzzleNo - b.puzzleNo);
+
+      for (let i = 0; i < sorted.length; i++) {
+        const cur = sorted[i];
+        const prev = i > 0 ? sorted[i - 1] : null;
+        const next = i < sorted.length - 1 ? sorted[i + 1] : null;
+        const html = buildPuzzleShell({
+          baseHtml,
+          puzzleNo: cur.puzzleNo,
+          puzzleDate: cur.puzzleDate,
+          prev,
+          next,
+          siteUrl: SITE_URL,
+          ogImage: OG_IMAGE,
+        });
+        const dir = path.resolve(root, outDir, "puzzle", String(cur.puzzleNo));
+        await fs.mkdir(dir, { recursive: true });
+        await fs.writeFile(path.join(dir, "index.html"), html, "utf8");
+      }
+
+      const archiveDir = path.resolve(root, outDir, "puzzle");
+      await fs.mkdir(archiveDir, { recursive: true });
+      await fs.writeFile(
+        path.join(archiveDir, "index.html"),
+        buildArchiveShell({
+          baseHtml,
+          puzzles: sorted,
+          siteUrl: SITE_URL,
+          ogImage: OG_IMAGE,
+        }),
+        "utf8",
+      );
+
+      console.log(`[seo] wrote ${sorted.length + 1} puzzle SEO shells to ${outDir}/puzzle/`);
+    },
+  };
+}
+
 // Emits /health.json into the built bundle and also serves it during
 // `vite dev`, so the Aphylia host / external monitoring can probe a
 // deployed instance and verify the build identity (sha, timestamp,
@@ -164,7 +259,7 @@ function healthEndpointPlugin() {
   };
 }
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(async ({ mode, command }) => {
   // loadEnv reads .env, .env.local, .env.<mode>, .env.<mode>.local from
   // the project root. Empty-prefix means "load every var", not just VITE_*.
   const env = loadEnv(mode, process.cwd(), "");
@@ -184,8 +279,31 @@ export default defineConfig(({ mode }) => {
   OG_IMAGE = (process.env.VITE_APP_OG_IMAGE || `${SITE_URL}/og-image.png`).trim();
   DEV_HOST = process.env.APHYDLE_DEV_HOST || DEV_HOST;
 
+  // Pull the past-puzzle list at build time so the SEO shells and
+  // sitemap can enumerate every /puzzle/<n>/. We only fetch for `vite
+  // build` — dev doesn't need shells, and a slow Supabase response
+  // would be an annoying hang on every `vite dev` startup.
+  let puzzleList = [];
+  if (command === "build") {
+    try {
+      puzzleList = await fetchPuzzleArchive();
+      if (puzzleList.length > 0) {
+        console.log(`[seo] fetched ${puzzleList.length} past puzzle(s) for SEO shells`);
+      }
+    } catch (err) {
+      console.warn("[seo] puzzle archive fetch failed:", err?.message || err);
+      puzzleList = [];
+    }
+  }
+  const puzzleListRef = () => puzzleList;
+
   return {
-    plugins: [react(), seoArtifactsPlugin(), healthEndpointPlugin()],
+    plugins: [
+      react(),
+      seoArtifactsPlugin(puzzleListRef),
+      puzzlePagesPlugin(puzzleListRef),
+      healthEndpointPlugin(),
+    ],
     base: process.env.VITE_APP_BASE_PATH || "/",
     define: {
       "import.meta.env.VITE_APP_BUILD_TIMESTAMP": JSON.stringify(BUILD_TIMESTAMP),
