@@ -63,6 +63,7 @@ export const HINT_SCHEDULE = [
   { atAttempt: 6, key: "livingSpace", label: "Living space" },
   { atAttempt: 7, key: "foliage", label: "Foliage" },
   { atAttempt: 8, key: "habitat", label: "Habitat" },
+  { atAttempt: 9, key: "lifeCycle", label: "Life cycle" },
 ];
 
 function asText(v) {
@@ -88,6 +89,8 @@ export function buildHint(key, plant) {
       return asText(plant.foliage);
     case "habitat":
       return asText(plant.habitat);
+    case "lifeCycle":
+      return asText(plant.lifeCycle);
     default:
       return "";
   }
