@@ -9,6 +9,15 @@
 // family + native region, an optional one-paragraph fact). Care guides
 // remain Aphylia's responsibility.
 
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const LOGO_DATA_URI = `data:image/png;base64,${readFileSync(
+  resolve(__dirname, "../src/assets/FINAL.png"),
+).toString("base64")}`;
+
 const HTML_ESCAPES = {
   "&": "&amp;",
   "<": "&lt;",
@@ -92,7 +101,7 @@ function pageHead({ title, description, canonical, ogImage, ldJson, robots = "in
   <meta name="twitter:title" content="${escapeHtml(title)}" />
   <meta name="twitter:description" content="${escapeHtml(description)}" />
   <meta name="twitter:image" content="${escapeHtml(ogImage)}" />
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%230F0F0F'/><path d='M16 44c0-14 12-24 32-26-2 20-12 32-26 32-3 0-6-2-6-6z' fill='%2300D26A'/><path d='M18 46c10-8 18-16 28-22' stroke='%230F0F0F' stroke-width='2' stroke-linecap='round' fill='none'/></svg>" />
+  <link rel="icon" type="image/png" href="${LOGO_DATA_URI}" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&display=swap" rel="stylesheet" />
@@ -110,7 +119,8 @@ function pageHead({ title, description, canonical, ogImage, ldJson, robots = "in
     a:hover { text-decoration: none; }
     header.site { border-bottom: 1px solid var(--border); padding: 1rem 1.25rem; background: var(--bg); }
     header.site .inner { max-width: 760px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
-    header.site a.brand { font-family: var(--mono); font-weight: 700; font-size: 1rem; color: var(--fg); text-decoration: none; }
+    header.site a.brand { font-family: var(--mono); font-weight: 700; font-size: 1rem; color: var(--fg); text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; }
+    header.site a.brand img { width: 22px; height: 22px; display: block; object-fit: contain; }
     header.site nav a { font-family: var(--mono); font-size: 0.85rem; margin-left: 1.25rem; }
     main { max-width: 760px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
     h1 { font-family: var(--mono); font-weight: 700; font-size: clamp(1.6rem, 4vw, 2.1rem); letter-spacing: -0.01em; margin: 0 0 0.25rem; }
@@ -156,7 +166,7 @@ ${ldJson ? `  <script type="application/ld+json">${ldJson}</script>` : ""}
 function siteChrome(base) {
   return {
     header: `<header class="site"><div class="inner">
-  <a class="brand" href="${base}">Aphydle</a>
+  <a class="brand" href="${base}"><img src="${LOGO_DATA_URI}" alt="" width="22" height="22" />Aphydle</a>
   <nav><a href="${base}">Play today</a><a href="${base}puzzle/">Archive</a></nav>
 </div></header>`,
     footer: `<footer class="site"><div class="inner">
