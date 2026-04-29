@@ -14,7 +14,6 @@ import {
   loadGameState,
   saveGameState,
   recordResult,
-  isPuzzlePlayed,
 } from "./lib/storage.js";
 import { trackVisit } from "./lib/analytics.js";
 
@@ -26,6 +25,19 @@ function isExportPath() {
   if (typeof window === "undefined") return false;
   const p = window.location.pathname.replace(/\/+$/, "");
   return p === "/export";
+}
+
+// Maps the entry URL to an initial in-app intent. `/puzzle` opens the Archive
+// sheet over today's game, and `/puzzle/<n>` starts (or, if already finished,
+// just shows the archive entry for) puzzle n. The URL is rewritten to `/` on
+// mount so a reload doesn't keep re-triggering the same intent.
+function readInitialRoute() {
+  if (typeof window === "undefined") return { type: "home" };
+  const p = window.location.pathname.replace(/\/+$/, "");
+  if (p === "/puzzle") return { type: "archive" };
+  const m = p.match(/^\/puzzle\/(\d+)$/);
+  if (m) return { type: "puzzle", puzzleNo: parseInt(m[1], 10) };
+  return { type: "home" };
 }
 
 // Standalone admin entry — owns its own theme state so the host App's
@@ -62,10 +74,32 @@ export default function App() {
   const [now, setNow] = useState(() => new Date());
   const dateLabel = useMemo(() => formatPuzzleDate(now), [now]);
 
-  // When set, replaces today's puzzle with an archived one — the Archive
-  // screen calls onPlayPuzzle() to start a replay session for any puzzle
-  // the player hasn't completed yet.
-  const [archivePuzzleNo, setArchivePuzzleNo] = useState(null);
+  // Resolved once on mount — `/puzzle` and `/puzzle/<n>` are entry-point
+  // URLs, not routes the SPA navigates between.
+  const initialRoute = useMemo(readInitialRoute, []);
+
+  // When set, replaces today's puzzle with an archived one. For unplayed
+  // puzzles this becomes a real replay session; for already-finished ones
+  // it lands on the FinishScreen (state hydrates with the saved outcome)
+  // so the player can review the answer, the recap and the global stats.
+  const [archivePuzzleNo, setArchivePuzzleNo] = useState(() => {
+    if (initialRoute.type === "puzzle") return initialRoute.puzzleNo;
+    return null;
+  });
+
+  // One-shot signal that opens the Archive overlay on first render of the
+  // GameScreen / FinishScreen. Only used by the bare `/puzzle` entry; the
+  // `/puzzle/<n>` form goes straight to that puzzle's screen.
+  const initialOverlay = initialRoute.type === "archive" ? "archive" : null;
+
+  // Strip the entry path so refreshing the page doesn't keep re-firing the
+  // same intent (would re-open the archive every reload, or restart a replay
+  // the user already exited).
+  useEffect(() => {
+    if (initialRoute.type !== "home" && typeof window !== "undefined") {
+      window.history.replaceState({}, "", "/");
+    }
+  }, [initialRoute]);
 
   // The active puzzle (today's by default, or an archive replay). Until
   // it resolves we render nothing — the whole app is gated on an answer.
@@ -140,13 +174,15 @@ export default function App() {
   if (!answer || puzzleNo == null) return null;
 
   // The Archive owns the replay-puzzle picker. A null puzzleNo from the
-  // archive means "back to today".
+  // archive means "back to today". For finished puzzles we still load the
+  // archive entry — state hydrate restores the saved outcome, so the
+  // FinishScreen surfaces (answer, recap and distribution) rather than
+  // re-opening the locked replay.
   function handlePlayPuzzle(no) {
     if (no == null) {
       setArchivePuzzleNo(null);
       return;
     }
-    if (isPuzzlePlayed(no)) return; // local lock — never replay a finished puzzle
     setArchivePuzzleNo(no);
   }
 
@@ -163,6 +199,7 @@ export default function App() {
         onPlayPuzzle={handlePlayPuzzle}
         isArchiveSession={archivePuzzleNo != null}
         onChangeTheme={setTheme}
+        initialOverlay={initialOverlay}
       />
     );
   }
@@ -178,6 +215,7 @@ export default function App() {
       onPlayPuzzle={handlePlayPuzzle}
       isArchiveSession={archivePuzzleNo != null}
       onChangeTheme={setTheme}
+      initialOverlay={initialOverlay}
     />
   );
 }

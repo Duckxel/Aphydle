@@ -29,12 +29,14 @@ export function FinishScreen({
   onPlayPuzzle,
   isArchiveSession = false,
   onChangeTheme,
+  initialOverlay = null,
 }) {
   const T = tokens(theme);
   const [dist, setDist] = useState(null);
   // The export overlay is intentionally not exposed via any visible control.
   // Only people who know the secret URL (?export=open) can open it.
   const [overlay, setOverlay] = useState(() => {
+    if (initialOverlay) return initialOverlay;
     if (typeof window === "undefined") return null;
     const params = new URLSearchParams(window.location.search);
     if (params.get("export") === "open") return "export";
@@ -86,7 +88,24 @@ export function FinishScreen({
           justifyContent: "space-between",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div
+          onClick={onPlayPuzzle ? () => onPlayPuzzle(null) : undefined}
+          role={onPlayPuzzle ? "button" : undefined}
+          tabIndex={onPlayPuzzle ? 0 : undefined}
+          onKeyDown={(e) => {
+            if (onPlayPuzzle && (e.key === "Enter" || e.key === " ")) {
+              e.preventDefault();
+              onPlayPuzzle(null);
+            }
+          }}
+          title="Back to today's puzzle"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            cursor: onPlayPuzzle ? "pointer" : "default",
+          }}
+        >
           <MosaicLeaf size={36} theme={theme} />
           <div
             className="aph-title"
