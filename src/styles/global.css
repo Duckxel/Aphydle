@@ -69,6 +69,19 @@ input {
   .aph-header-controls {
     flex-wrap: wrap !important;
     justify-content: flex-end;
+    gap: 8px !important;
+  }
+  .aph-nav-btn {
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 15px !important;
+  }
+  .aph-theme-toggle button {
+    padding: 11px 14px !important;
+    font-size: 11px !important;
+  }
+  .aph-guess-meta-hint {
+    display: none !important;
   }
 
   .aph-container {
@@ -131,6 +144,9 @@ input {
   }
   .aph-guess-row-header {
     display: none !important;
+  }
+  .aph-cell-label {
+    display: block !important;
   }
 
   .aph-empty-cmp-grid {

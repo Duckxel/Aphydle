@@ -50,7 +50,7 @@ export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
       className="aph-guess-row"
       style={{
         display: "grid",
-        gridTemplateColumns: `minmax(140px, 1.8fr) repeat(${COMPARE_COLUMNS.length}, minmax(0, 1fr))`,
+        gridTemplateColumns: `minmax(120px, 1.3fr) repeat(${COMPARE_COLUMNS.length}, minmax(0, 1fr))`,
         gap: 4,
         animation: isLatest ? "aphSlideUp 0.4s cubic-bezier(0.16,1,0.3,1)" : "none",
         marginBottom: 4,
@@ -109,6 +109,21 @@ export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
         const display = items.length ? items : ["—"];
         return (
           <Cell key={col.key} theme={theme} isMatch={match} accent={accent}>
+            <div
+              className="aph-cell-label"
+              style={{
+                display: "none",
+                fontFamily: "var(--mono)",
+                fontSize: 8,
+                color: T.subtle,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                marginBottom: 4,
+                fontWeight: 600,
+              }}
+            >
+              {col.label}
+            </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {display.map((item, idx) => (
                 <div
@@ -121,6 +136,8 @@ export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
                     textDecorationColor: match ? "transparent" : `${T.muted}60`,
                     fontWeight: match ? 600 : 400,
                     lineHeight: 1.25,
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
                   }}
                 >
                   {item}
@@ -165,7 +182,7 @@ export function GuessRowHeader({ theme }) {
       className="aph-guess-row-header"
       style={{
         display: "grid",
-        gridTemplateColumns: `minmax(140px, 1.8fr) repeat(${COMPARE_COLUMNS.length}, minmax(0, 1fr))`,
+        gridTemplateColumns: `minmax(120px, 1.3fr) repeat(${COMPARE_COLUMNS.length}, minmax(0, 1fr))`,
         gap: 4,
         marginBottom: 6,
         paddingLeft: 12,
