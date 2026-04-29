@@ -20,7 +20,6 @@ export const DAILY_PLANTS = [
     lightNeeds: "Bright indirect",
     nativeRegion: "Central America",
     toxicity: "Mildly toxic",
-    dominantColors: ["deep green", "creamy variegation"],
     imageUrl:
       "https://images.unsplash.com/photo-1614594975525-e45190c55d0b?w=1400&q=85&auto=format&fit=crop",
     fact:
@@ -39,7 +38,6 @@ export const DAILY_PLANTS = [
     lightNeeds: "Bright direct",
     nativeRegion: "West Africa",
     toxicity: "Mildly toxic",
-    dominantColors: ["glossy green", "deep emerald"],
     imageUrl:
       "https://images.unsplash.com/photo-1581793745862-99fde7fa73ce?w=1400&q=85&auto=format&fit=crop",
     fact:
@@ -58,7 +56,6 @@ export const DAILY_PLANTS = [
     lightNeeds: "Bright indirect",
     nativeRegion: "East Asia",
     toxicity: "Pet-safe",
-    dominantColors: ["mid green", "silver shimmer"],
     imageUrl:
       "https://images.unsplash.com/photo-1604762512526-b7068fe1eb44?w=1400&q=85&auto=format&fit=crop",
     fact:
@@ -77,7 +74,6 @@ export const DAILY_PLANTS = [
     lightNeeds: "Bright direct",
     nativeRegion: "Southern Africa",
     toxicity: "Mildly toxic",
-    dominantColors: ["forest green", "tangerine bract"],
     imageUrl:
       "https://images.unsplash.com/photo-1597055181449-b3974c50d6f0?w=1400&q=85&auto=format&fit=crop",
     fact:
@@ -96,7 +92,6 @@ export const DAILY_PLANTS = [
     lightNeeds: "Low to bright",
     nativeRegion: "West Africa",
     toxicity: "Mildly toxic",
-    dominantColors: ["dusty green", "ivory edge"],
     imageUrl:
       "https://images.unsplash.com/photo-1593482892290-f54927ae1bb6?w=1400&q=85&auto=format&fit=crop",
     fact:
@@ -115,7 +110,6 @@ export const DAILY_PLANTS = [
     lightNeeds: "Medium",
     nativeRegion: "South America",
     toxicity: "Pet-safe",
-    dominantColors: ["sage green", "silver banding"],
     imageUrl:
       "https://images.unsplash.com/photo-1620503374956-c942862f0372?w=1400&q=85&auto=format&fit=crop",
     fact:
@@ -134,7 +128,6 @@ export const DAILY_PLANTS = [
     lightNeeds: "Low to bright",
     nativeRegion: "East Africa",
     toxicity: "Highly toxic",
-    dominantColors: ["lacquered green"],
     imageUrl:
       "https://images.unsplash.com/photo-1632207691143-643e2a9a9361?w=1400&q=85&auto=format&fit=crop",
     fact:

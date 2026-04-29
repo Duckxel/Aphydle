@@ -16,7 +16,7 @@ const APH_MUTED = "#8A8A85";
 const CARD_HINTS = [
   { key: "habitat", label: "Habitat" },
   { key: "growth", label: "Growth form" },
-  { key: "colors", label: "Foliage" },
+  { key: "foliage", label: "Foliage" },
 ];
 
 function buildCards(plant) {

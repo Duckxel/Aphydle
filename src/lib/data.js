@@ -135,7 +135,6 @@ function rowToPlant(r) {
     lightNeeds: arrAll(r.sunlight),
     nativeRegion: arrAll(tr?.origin),
     toxicity: worstToxicity(r.toxicity_human, r.toxicity_pets),
-    dominantColors: [],
     imageUrl: pickImage(r.plant_images),
     fact: tr?.presentation || tr?.description || tr?.summary || null,
     commonMisguess: null,

@@ -57,7 +57,7 @@ export function msUntilNextUtcMidnight(date = new Date()) {
 export const HINT_SCHEDULE = [
   { atAttempt: 1, key: "habitat", label: "Habitat" },
   { atAttempt: 2, key: "growth", label: "Growth form" },
-  { atAttempt: 3, key: "colors", label: "Foliage" },
+  { atAttempt: 3, key: "foliage", label: "Foliage" },
   { atAttempt: 4, key: "care", label: "Care + light" },
   { atAttempt: 5, key: "region", label: "Native to" },
   { atAttempt: 6, key: "family", label: "Family" },
@@ -77,8 +77,8 @@ export function buildHint(key, plant) {
       return asText(plant.habitat);
     case "growth":
       return asText(plant.growthForm);
-    case "colors":
-      return plant.dominantColors.join(", ");
+    case "foliage":
+      return asText(plant.foliage);
     case "care":
       return `${"●".repeat(plant.careLevel)}${"○".repeat(5 - plant.careLevel)}  ·  ${asText(plant.lightNeeds)}`;
     case "region":
