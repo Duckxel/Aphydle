@@ -5,7 +5,6 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { fetchPuzzleArchive } from "./seo/puzzle-fetch.mjs";
-import { buildPuzzleShell, buildArchiveShell } from "./seo/puzzle-pages.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -151,76 +150,6 @@ function seoArtifactsPlugin(puzzleListRef) {
   };
 }
 
-// Emits per-puzzle SEO shells under /puzzle/<n>/index.html and a /puzzle/
-// archive landing. Runs in `closeBundle` (after Vite has finished writing
-// its own assets) so we can read the freshly transformed dist/index.html
-// off disk — that way every shell references the same hashed asset
-// bundle Vite just produced. Skipped entirely when the puzzle list is
-// empty (no Supabase env in dev / fresh checkout).
-function puzzlePagesPlugin(puzzleListRef) {
-  let outDir = "dist";
-  return {
-    name: "aphydle-puzzle-pages",
-    apply: "build",
-    enforce: "post",
-    configResolved(cfg) {
-      outDir = cfg.build?.outDir || "dist";
-    },
-    async closeBundle() {
-      const puzzles = (puzzleListRef && puzzleListRef()) || [];
-      if (puzzles.length === 0) return;
-
-      const fs = await import("node:fs/promises");
-      const path = await import("node:path");
-      const root = process.cwd();
-      const indexPath = path.resolve(root, outDir, "index.html");
-
-      let baseHtml;
-      try {
-        baseHtml = await fs.readFile(indexPath, "utf8");
-      } catch (err) {
-        this.warn(`[seo] could not read ${indexPath}: ${err.message} — skipping puzzle shells`);
-        return;
-      }
-
-      const sorted = puzzles.slice().sort((a, b) => a.puzzleNo - b.puzzleNo);
-
-      for (let i = 0; i < sorted.length; i++) {
-        const cur = sorted[i];
-        const prev = i > 0 ? sorted[i - 1] : null;
-        const next = i < sorted.length - 1 ? sorted[i + 1] : null;
-        const html = buildPuzzleShell({
-          baseHtml,
-          puzzleNo: cur.puzzleNo,
-          puzzleDate: cur.puzzleDate,
-          prev,
-          next,
-          siteUrl: SITE_URL,
-          ogImage: OG_IMAGE,
-        });
-        const dir = path.resolve(root, outDir, "puzzle", String(cur.puzzleNo));
-        await fs.mkdir(dir, { recursive: true });
-        await fs.writeFile(path.join(dir, "index.html"), html, "utf8");
-      }
-
-      const archiveDir = path.resolve(root, outDir, "puzzle");
-      await fs.mkdir(archiveDir, { recursive: true });
-      await fs.writeFile(
-        path.join(archiveDir, "index.html"),
-        buildArchiveShell({
-          baseHtml,
-          puzzles: sorted,
-          siteUrl: SITE_URL,
-          ogImage: OG_IMAGE,
-        }),
-        "utf8",
-      );
-
-      console.log(`[seo] wrote ${sorted.length + 1} puzzle SEO shells to ${outDir}/puzzle/`);
-    },
-  };
-}
-
 // Emits /health.json into the built bundle and also serves it during
 // `vite dev`, so the Aphylia host / external monitoring can probe a
 // deployed instance and verify the build identity (sha, timestamp,
@@ -279,10 +208,11 @@ export default defineConfig(async ({ mode, command }) => {
   OG_IMAGE = (process.env.VITE_APP_OG_IMAGE || `${SITE_URL}/og-image.png`).trim();
   DEV_HOST = process.env.APHYDLE_DEV_HOST || DEV_HOST;
 
-  // Pull the past-puzzle list at build time so the SEO shells and
-  // sitemap can enumerate every /puzzle/<n>/. We only fetch for `vite
-  // build` — dev doesn't need shells, and a slow Supabase response
-  // would be an annoying hang on every `vite dev` startup.
+  // Pull the past-puzzle list at build time so the sitemap can enumerate
+  // every /puzzle/<n>/. Per-puzzle SEO HTML is rendered at request time by
+  // server.mjs (crawler detection), so this fetch is only for sitemap.xml.
+  // We only fetch for `vite build` — dev doesn't need it, and a slow
+  // Supabase response would be an annoying hang on every `vite dev` start.
   let puzzleList = [];
   if (command === "build") {
     try {
@@ -301,7 +231,6 @@ export default defineConfig(async ({ mode, command }) => {
     plugins: [
       react(),
       seoArtifactsPlugin(puzzleListRef),
-      puzzlePagesPlugin(puzzleListRef),
       healthEndpointPlugin(),
     ],
     base: process.env.VITE_APP_BASE_PATH || "/",
