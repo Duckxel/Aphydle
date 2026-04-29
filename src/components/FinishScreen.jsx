@@ -14,6 +14,7 @@ import { NavBtn, ThemeToggle } from "./ui/HeaderControls.jsx";
 import { StatsScreen } from "./screens/StatsScreen.jsx";
 import { ArchiveScreen } from "./screens/ArchiveScreen.jsx";
 import { HowToScreen } from "./screens/HowToScreen.jsx";
+import { ExportScreen } from "./screens/ExportScreen.jsx";
 
 const APHYLIA_PLANT_URL_BASE = "https://aphylia.app/plants/";
 
@@ -109,6 +110,7 @@ export function FinishScreen({
           <NavBtn theme={theme} label="?" onClick={() => setOverlay("how")} title="How to play" />
           <NavBtn theme={theme} label="◫" onClick={() => setOverlay("archive")} title="Archive" />
           <NavBtn theme={theme} label="▤" onClick={() => setOverlay("stats")} title="Stats" />
+          <NavBtn theme={theme} label="↗" onClick={() => setOverlay("export")} title="Export for social" />
         </div>
       </header>
 
@@ -395,6 +397,24 @@ export function FinishScreen({
                 VIEW ON APHYLIA →
               </a>
               <button
+                onClick={() => setOverlay("export")}
+                style={{
+                  flex: 1,
+                  minWidth: 140,
+                  padding: "16px 22px",
+                  background: "transparent",
+                  color: T.text,
+                  border: `1px solid ${T.border}`,
+                  cursor: "pointer",
+                  fontFamily: "var(--mono)",
+                  fontSize: 11,
+                  letterSpacing: "0.16em",
+                }}
+                title="Export shareable images for social media"
+              >
+                EXPORT ↗
+              </button>
+              <button
                 onClick={() => setOverlay("archive")}
                 style={{
                   flex: 1,
@@ -472,6 +492,14 @@ export function FinishScreen({
         />
       )}
       {overlay === "how" && <HowToScreen theme={theme} onClose={() => setOverlay(null)} />}
+      {overlay === "export" && (
+        <ExportScreen
+          theme={theme}
+          onClose={() => setOverlay(null)}
+          plant={plant}
+          puzzleNo={puzzleNo}
+        />
+      )}
     </div>
   );
 }
