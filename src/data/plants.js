@@ -1,9 +1,9 @@
 // Aphydle plant catalog — offline fallback.
 //
-// In production these come from Supabase (`aphydle.plants`,
-// `aphydle.guessable_plants`, `aphydle.daily_puzzles`). The constants
-// below are only used when the Supabase env vars aren't configured or
-// the request fails — see src/lib/data.js for the actual loaders.
+// In production the catalog is loaded from PlantSwipe's `public.plants`
+// (with `public.plant_images` and `public.plant_translations`) — see
+// src/lib/data.js for the actual loaders. The constants below are only
+// used when the Supabase env vars aren't configured or the request fails.
 
 // DAILY_PLANTS — answer-side records for the daily rotation. Each id must
 // also exist in GUESSABLE so the autocomplete includes the answer.
