@@ -81,9 +81,9 @@ export function GameScreen({
       <header
         className="aph-header"
         style={{
-          maxWidth: 1280,
+          maxWidth: 1440,
           margin: "0 auto",
-          padding: "20px 40px 0",
+          padding: "20px 32px 0",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -143,9 +143,9 @@ export function GameScreen({
       <div
         className="aph-container"
         style={{
-          maxWidth: 1280,
+          maxWidth: 1440,
           margin: "0 auto",
-          padding: "28px 40px 80px",
+          padding: "28px 32px 80px",
         }}
       >
         <div

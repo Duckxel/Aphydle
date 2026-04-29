@@ -50,7 +50,7 @@ export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
       className="aph-guess-row"
       style={{
         display: "grid",
-        gridTemplateColumns: `minmax(140px, 1.8fr) repeat(${COMPARE_COLUMNS.length}, minmax(0, 1fr))`,
+        gridTemplateColumns: `minmax(120px, 1.3fr) repeat(${COMPARE_COLUMNS.length}, minmax(0, 1fr))`,
         gap: 4,
         animation: isLatest ? "aphSlideUp 0.4s cubic-bezier(0.16,1,0.3,1)" : "none",
         marginBottom: 4,
@@ -121,6 +121,8 @@ export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
                     textDecorationColor: match ? "transparent" : `${T.muted}60`,
                     fontWeight: match ? 600 : 400,
                     lineHeight: 1.25,
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
                   }}
                 >
                   {item}
@@ -165,7 +167,7 @@ export function GuessRowHeader({ theme }) {
       className="aph-guess-row-header"
       style={{
         display: "grid",
-        gridTemplateColumns: `minmax(140px, 1.8fr) repeat(${COMPARE_COLUMNS.length}, minmax(0, 1fr))`,
+        gridTemplateColumns: `minmax(120px, 1.3fr) repeat(${COMPARE_COLUMNS.length}, minmax(0, 1fr))`,
         gap: 4,
         marginBottom: 6,
         paddingLeft: 12,
