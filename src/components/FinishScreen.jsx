@@ -33,6 +33,7 @@ export function FinishScreen({
 }) {
   const T = tokens(theme);
   const [dist, setDist] = useState(null);
+  const [factExpanded, setFactExpanded] = useState(false);
   // The export overlay is intentionally not exposed via any visible control.
   // Only people who know the secret URL (?export=open) can open it.
   const [overlay, setOverlay] = useState(() => {
@@ -230,20 +231,49 @@ export function FinishScreen({
             {plant.fact ? (
               <>
                 <div style={{ height: 1, background: T.border, margin: "28px 0" }} />
-                <p
-                  className="aph-finish-fact"
+                <button
+                  type="button"
+                  onClick={() => setFactExpanded((v) => !v)}
+                  aria-expanded={factExpanded}
                   style={{
-                    fontFamily: "var(--serif)",
-                    fontStyle: "italic",
-                    fontSize: 22,
-                    lineHeight: 1.45,
-                    margin: 0,
-                    color: T.text,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%",
                     maxWidth: 560,
+                    padding: 0,
+                    background: "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    color: T.muted,
+                    fontFamily: "var(--mono)",
+                    fontSize: 10,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    textAlign: "left",
                   }}
                 >
-                  &ldquo;{plant.fact}&rdquo;
-                </p>
+                  <span>OVERVIEW</span>
+                  <span aria-hidden="true" style={{ fontSize: 12 }}>
+                    {factExpanded ? "▾" : "▸"}
+                  </span>
+                </button>
+                {factExpanded && (
+                  <p
+                    className="aph-finish-fact"
+                    style={{
+                      fontFamily: "var(--serif)",
+                      fontStyle: "italic",
+                      fontSize: 22,
+                      lineHeight: 1.45,
+                      margin: "12px 0 0",
+                      color: T.text,
+                      maxWidth: 560,
+                    }}
+                  >
+                    &ldquo;{plant.fact}&rdquo;
+                  </p>
+                )}
               </>
             ) : null}
 
