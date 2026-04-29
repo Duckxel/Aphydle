@@ -88,7 +88,24 @@ export function FinishScreen({
           justifyContent: "space-between",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div
+          onClick={onPlayPuzzle ? () => onPlayPuzzle(null) : undefined}
+          role={onPlayPuzzle ? "button" : undefined}
+          tabIndex={onPlayPuzzle ? 0 : undefined}
+          onKeyDown={(e) => {
+            if (onPlayPuzzle && (e.key === "Enter" || e.key === " ")) {
+              e.preventDefault();
+              onPlayPuzzle(null);
+            }
+          }}
+          title="Back to today's puzzle"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            cursor: onPlayPuzzle ? "pointer" : "default",
+          }}
+        >
           <MosaicLeaf size={36} theme={theme} />
           <div
             className="aph-title"
