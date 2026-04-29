@@ -109,6 +109,21 @@ export function GuessRow({ guess, answer, theme, isAnswer, isLatest }) {
         const display = items.length ? items : ["—"];
         return (
           <Cell key={col.key} theme={theme} isMatch={match} accent={accent}>
+            <div
+              className="aph-cell-label"
+              style={{
+                display: "none",
+                fontFamily: "var(--mono)",
+                fontSize: 8,
+                color: T.subtle,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                marginBottom: 4,
+                fontWeight: 600,
+              }}
+            >
+              {col.label}
+            </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {display.map((item, idx) => (
                 <div

@@ -88,8 +88,10 @@ export function GuessInput({ theme, onSubmit, disabled, attemptsLeft, guessedIds
             right: 0,
             background: T.elevated,
             border: `1px solid ${T.border}`,
-            maxHeight: 240,
+            maxHeight: "min(240px, 50vh)",
             overflow: "auto",
+            overscrollBehavior: "contain",
+            WebkitOverflowScrolling: "touch",
             zIndex: 10,
             boxShadow:
               theme === "dark"
@@ -217,6 +219,7 @@ export function GuessInput({ theme, onSubmit, disabled, attemptsLeft, guessedIds
         </button>
       </div>
       <div
+        className="aph-guess-meta"
         style={{
           marginTop: 8,
           display: "flex",
@@ -228,7 +231,7 @@ export function GuessInput({ theme, onSubmit, disabled, attemptsLeft, guessedIds
         }}
       >
         <span>{attemptsLeft} ATTEMPTS LEFT</span>
-        <span>↑↓ NAVIGATE  ·  ↵ SUBMIT</span>
+        <span className="aph-guess-meta-hint">↑↓ NAVIGATE  ·  ↵ SUBMIT</span>
       </div>
     </div>
   );

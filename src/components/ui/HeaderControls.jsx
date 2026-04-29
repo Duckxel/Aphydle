@@ -4,8 +4,10 @@ export function NavBtn({ theme, label, onClick, title }) {
   const T = tokens(theme);
   return (
     <button
+      className="aph-nav-btn"
       onClick={onClick}
       title={title}
+      aria-label={title}
       style={{
         width: 32,
         height: 32,
@@ -30,6 +32,7 @@ export function ThemeToggle({ theme, onChange }) {
   const T = tokens(theme);
   return (
     <div
+      className="aph-theme-toggle"
       style={{
         display: "flex",
         border: `1px solid ${T.border}`,
@@ -42,6 +45,7 @@ export function ThemeToggle({ theme, onChange }) {
         <button
           key={m}
           onClick={() => onChange(m)}
+          aria-pressed={theme === m}
           style={{
             padding: "8px 12px",
             border: "none",
