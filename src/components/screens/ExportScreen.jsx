@@ -73,12 +73,14 @@ function drawMosaic(ctx, img, level, w, h) {
   }
 }
 
-function drawTopBand(ctx, w, h) {
+function drawTopBand(ctx, w, h, kind) {
   // Soft dark gradient at the top so overlay text reads on any image.
-  const bandHeight = Math.round(h * 0.34);
+  // Hint cards extend the band so the value text below the label stays readable.
+  const ratio = kind === "hint" ? 0.42 : 0.34;
+  const bandHeight = Math.round(h * ratio);
   const grad = ctx.createLinearGradient(0, 0, 0, bandHeight);
-  grad.addColorStop(0, "rgba(10,10,10,0.88)");
-  grad.addColorStop(0.6, "rgba(10,10,10,0.45)");
+  grad.addColorStop(0, "rgba(10,10,10,0.92)");
+  grad.addColorStop(0.7, "rgba(10,10,10,0.6)");
   grad.addColorStop(1, "rgba(10,10,10,0)");
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, bandHeight);
@@ -117,7 +119,7 @@ function drawHairline(ctx, x1, y, x2, color) {
 }
 
 function drawTopContent(ctx, w, h, card) {
-  drawTopBand(ctx, w, h);
+  drawTopBand(ctx, w, h, card.kind);
   const cx = w / 2;
   // Tiny "APHYDLE · No." eyebrow keeps the brand visible above the headline.
   const eyebrowY = Math.round(h * 0.075);
@@ -164,28 +166,30 @@ function drawTopContent(ctx, w, h, card) {
       letterSpacing: "3px",
     });
   } else if (card.kind === "hint") {
-    drawCenteredText(ctx, "HINT", cx, Math.round(h * 0.155), {
+    drawCenteredText(ctx, "HINT", cx, Math.round(h * 0.13), {
       color: APH_MUTED,
       weight: 500,
-      size: Math.round(w * 0.026),
+      size: Math.round(w * 0.024),
       letterSpacing: "8px",
     });
-    drawCenteredText(ctx, card.hintLabel.toUpperCase(), cx, Math.round(h * 0.205), {
-      color: APH_FG,
+    drawCenteredText(ctx, card.hintLabel.toUpperCase(), cx, Math.round(h * 0.185), {
+      color: APH_ACCENT,
       weight: 600,
-      size: Math.round(w * 0.038),
+      size: Math.round(w * 0.032),
       letterSpacing: "5px",
     });
-    drawCenteredText(ctx, card.hintValue, cx, Math.round(h * 0.272), {
-      color: APH_ACCENT,
-      weight: 500,
-      size: Math.round(w * 0.034),
-      letterSpacing: "1px",
+    const value = (card.hintValue || "").trim() || "—";
+    const valueSize = Math.round(w * 0.058);
+    drawCenteredText(ctx, value, cx, Math.round(h * 0.28), {
+      color: APH_FG,
+      weight: 700,
+      size: valueSize,
+      letterSpacing: "2px",
     });
   }
 }
 
-function drawBrandMark(ctx, w, h, logoImg, card) {
+function drawBrandMark(ctx, w, h, logoImg) {
   drawBottomBand(ctx, w, h);
   const pad = Math.round(w * 0.04);
   const logoSize = Math.round(w * 0.075);
@@ -221,13 +225,6 @@ function drawBrandMark(ctx, w, h, logoImg, card) {
   ctx.textAlign = "left";
   ctx.fillText("MOSAIC · DAILY PLANT GAME", wordmarkX, taglineY);
 
-  // Mosaic-level chip on the right, mirroring the in-game UI.
-  ctx.fillStyle = APH_MUTED;
-  ctx.font = `500 ${Math.round(w * 0.016)}px ${BRAND_FONT}`;
-  setLetterSpacing(ctx, "5px");
-  ctx.textAlign = "right";
-  ctx.fillText(`MOSAIC LEVEL ${card.level}`, w - pad, taglineY);
-
   setLetterSpacing(ctx, "0px");
 }
 
@@ -253,27 +250,126 @@ function drawCardOnto(canvas, img, logoImg, card) {
   }
 
   drawTopContent(ctx, w, h, card);
-  drawBrandMark(ctx, w, h, logoImg, card);
+  drawBrandMark(ctx, w, h, logoImg);
   drawFrame(ctx, w, h);
 }
 
-function downloadCanvas(canvas, filename) {
+function canvasToBytes(canvas) {
   return new Promise((resolve) => {
-    canvas.toBlob((blob) => {
+    canvas.toBlob(async (blob) => {
       if (!blob) {
-        resolve(false);
+        resolve(null);
         return;
       }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      resolve(true);
+      const buf = await blob.arrayBuffer();
+      resolve(new Uint8Array(buf));
     }, "image/png");
+  });
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+const CRC32_TABLE = (() => {
+  const table = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) {
+      c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    }
+    table[i] = c >>> 0;
+  }
+  return table;
+})();
+
+function crc32(bytes) {
+  let c = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) {
+    c = CRC32_TABLE[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+  }
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+// Minimal store-only ZIP encoder — PNGs are already compressed, so storing them
+// keeps the implementation tiny and avoids pulling in a deflate library just to
+// bundle five files behind one download click.
+function makeZipBlob(files) {
+  const enc = new TextEncoder();
+  const parts = [];
+  const central = [];
+  let offset = 0;
+
+  for (const f of files) {
+    const nameBytes = enc.encode(f.name);
+    const data = f.data;
+    const crc = crc32(data);
+    const size = data.length;
+
+    const local = new ArrayBuffer(30 + nameBytes.length);
+    const lv = new DataView(local);
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(4, 20, true);
+    lv.setUint16(6, 0, true);
+    lv.setUint16(8, 0, true);
+    lv.setUint16(10, 0, true);
+    lv.setUint16(12, 0, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true);
+    lv.setUint32(22, size, true);
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);
+    new Uint8Array(local, 30).set(nameBytes);
+    parts.push(new Uint8Array(local), data);
+
+    const cd = new ArrayBuffer(46 + nameBytes.length);
+    const cv = new DataView(cd);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint16(12, 0, true);
+    cv.setUint16(14, 0, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);
+    cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true);
+    cv.setUint16(36, 0, true);
+    cv.setUint32(38, 0, true);
+    cv.setUint32(42, offset, true);
+    new Uint8Array(cd, 46).set(nameBytes);
+    central.push(new Uint8Array(cd));
+
+    offset += 30 + nameBytes.length + size;
+  }
+
+  const cdSize = central.reduce((s, p) => s + p.length, 0);
+  const cdOffset = offset;
+
+  const eocd = new ArrayBuffer(22);
+  const ev = new DataView(eocd);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(4, 0, true);
+  ev.setUint16(6, 0, true);
+  ev.setUint16(8, files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, cdSize, true);
+  ev.setUint32(16, cdOffset, true);
+  ev.setUint16(20, 0, true);
+
+  return new Blob([...parts, ...central, new Uint8Array(eocd)], {
+    type: "application/zip",
   });
 }
 
@@ -344,16 +440,20 @@ export function ExportScreen({ theme, onClose, plant, puzzleNo }) {
       await ensureBrandFontReady();
       const safeId = String(plant.id).replace(/[^a-z0-9-]/gi, "-").toLowerCase();
       const stem = `aphydle-${puzzleNo}-${safeId}`;
+      const files = [];
       for (let i = 0; i < cards.length; i++) {
         const card = cards[i];
         const c = document.createElement("canvas");
         c.width = EXPORT_SIZE;
         c.height = EXPORT_SIZE;
         drawCardOnto(c, img, logo, card);
-        const filename = `${stem}-${i + 1}-mosaic-${card.level}.png`;
-        await downloadCanvas(c, filename);
-        await new Promise((r) => setTimeout(r, 180));
+        const data = await canvasToBytes(c);
+        if (!data) continue;
+        files.push({ name: `${stem}-${i + 1}.png`, data });
       }
+      if (files.length === 0) return;
+      const zip = makeZipBlob(files);
+      downloadBlob(zip, `${stem}.zip`);
     } finally {
       setDownloading(false);
     }
@@ -459,7 +559,7 @@ export function ExportScreen({ theme, onClose, plant, puzzleNo }) {
             opacity: !img || downloading ? 0.6 : 1,
           }}
         >
-          {downloading ? "DOWNLOADING…" : "DOWNLOAD ALL · 5 IMAGES"}
+          {downloading ? "PREPARING…" : "DOWNLOAD ALL · 5 IMAGES (.ZIP)"}
         </button>
         <button
           onClick={onClose}
