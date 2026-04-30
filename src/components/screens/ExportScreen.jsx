@@ -150,6 +150,63 @@ function drawCenteredText(ctx, text, cx, y, opts) {
   ctx.fillText(text, cx, y);
 }
 
+// Greedy word wrap on whitespace. Comma-separated lists wrap cleanly between
+// items because each ", " contains a space.
+function wrapToWidth(ctx, text, maxWidth) {
+  const tokens = text.split(/(\s+)/).filter((t) => t.length > 0);
+  const lines = [];
+  let current = "";
+  for (const token of tokens) {
+    if (/^\s+$/.test(token)) {
+      current += token;
+      continue;
+    }
+    const candidate = current + token;
+    if (ctx.measureText(candidate.trimEnd()).width <= maxWidth || current.trim() === "") {
+      current = candidate;
+    } else {
+      lines.push(current.trimEnd());
+      current = token;
+    }
+  }
+  if (current.trim()) lines.push(current.trimEnd());
+  return lines.length ? lines : [text];
+}
+
+// Shrink-and-wrap until the text fits within maxWidth and maxLines. Returns
+// the chosen size and the wrapped lines so the caller can lay them out.
+function fitTextLines(ctx, text, opts) {
+  const { weight, startSize, minSize, letterSpacing, maxWidth, maxLines } = opts;
+  let size = startSize;
+  while (size >= minSize) {
+    ctx.font = `${weight} ${size}px ${BRAND_FONT}`;
+    setLetterSpacing(ctx, letterSpacing || "0px");
+    const lines = wrapToWidth(ctx, text, maxWidth);
+    const widest = lines.reduce((m, l) => Math.max(m, ctx.measureText(l).width), 0);
+    if (lines.length <= maxLines && widest <= maxWidth) {
+      return { size, lines };
+    }
+    size -= 2;
+  }
+  ctx.font = `${weight} ${minSize}px ${BRAND_FONT}`;
+  setLetterSpacing(ctx, letterSpacing || "0px");
+  return { size: minSize, lines: wrapToWidth(ctx, text, maxWidth).slice(0, maxLines) };
+}
+
+function drawCenteredFittedText(ctx, text, cx, y, opts) {
+  const { lines, size } = fitTextLines(ctx, text, opts);
+  const lineHeight = Math.round(size * 1.15);
+  ctx.fillStyle = opts.color;
+  ctx.font = `${opts.weight} ${size}px ${BRAND_FONT}`;
+  setLetterSpacing(ctx, opts.letterSpacing || "0px");
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  lines.forEach((line, i) => {
+    ctx.fillText(line, cx, y + i * lineHeight);
+  });
+  return { size, lines, lineHeight };
+}
+
 function drawHairline(ctx, x1, y, x2, color) {
   ctx.strokeStyle = color;
   ctx.lineWidth = 1;
@@ -220,12 +277,14 @@ function drawTopContent(ctx, w, h, card) {
       letterSpacing: "5px",
     });
     const value = (card.hintValue || "").trim() || "—";
-    const valueSize = Math.round(w * 0.058);
-    drawCenteredText(ctx, value, cx, Math.round(h * 0.28), {
+    drawCenteredFittedText(ctx, value, cx, Math.round(h * 0.28), {
       color: APH_FG,
       weight: 700,
-      size: valueSize,
+      startSize: Math.round(w * 0.058),
+      minSize: Math.round(w * 0.032),
       letterSpacing: "2px",
+      maxWidth: Math.round(w * 0.86),
+      maxLines: 3,
     });
   } else if (card.kind === "yesterday") {
     drawCenteredText(ctx, "YESTERDAY", cx, Math.round(h * 0.13), {

@@ -8,12 +8,18 @@ import {
   formatPuzzleDate,
   msUntilNextUtcMidnight,
 } from "./engine/game.js";
-import { loadDailyPuzzle, loadArchivedPuzzle, submitResult } from "./lib/data.js";
+import {
+  loadDailyPuzzle,
+  loadArchivedPuzzle,
+  submitResult,
+  flushPendingResults,
+} from "./lib/data.js";
 import { preloadImage } from "./lib/imageCache.js";
 import {
   loadGameState,
   saveGameState,
   recordResult,
+  markResultSubmitted,
 } from "./lib/storage.js";
 import { trackVisit } from "./lib/analytics.js";
 
@@ -156,13 +162,25 @@ export default function App() {
   }, [puzzleNo, state]);
 
   // Record the result once when a puzzle ends. The local stats writer is
-  // idempotent per puzzleNo. The Supabase submission is best-effort.
+  // idempotent per puzzleNo. The Supabase submission is best-effort, but
+  // we mark the local history entry on success so flushPendingResults()
+  // can retry any prior finish that never landed (network blip, RLS, etc.)
+  // on the next app load.
   useEffect(() => {
     if (puzzleNo == null || !answer) return;
     if (!state.outcome) return;
     recordResult(puzzleNo, state.outcome, state.guesses.length, answer);
-    submitResult(puzzleNo, state.outcome, state.guesses.length);
+    submitResult(puzzleNo, state.outcome, state.guesses.length).then((ok) => {
+      if (ok) markResultSubmitted(puzzleNo);
+    });
   }, [puzzleNo, answer, state.outcome, state.guesses.length]);
+
+  // Backfill any finished puzzle whose original submitResult() call failed.
+  // Without this, a transient error on the finish screen meant the player
+  // was permanently missing from the world histogram for that day.
+  useEffect(() => {
+    flushPendingResults();
+  }, []);
 
   // Anonymized analytics: log a page visit once per puzzle. Per-guess
   // tracking has been retired — the world histogram now sources from
