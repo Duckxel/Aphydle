@@ -256,6 +256,28 @@ export function recordResult(puzzleNo, outcome, guessCount, plant = null) {
   return stats;
 }
 
+// ── Pending Supabase submissions ─────────────────────────────────────────────
+// Each finished entry in HISTORY_KEY is also our pending-submit queue: any
+// entry without a `submittedAt` stamp still needs to land in
+// aphydle.puzzle_results. flushPendingResults() retries them on every app
+// load, which is what guarantees a transient submitResult() failure doesn't
+// silently drop the player from the world histogram.
+export function loadUnsubmittedResults() {
+  return loadHistory().filter(
+    (h) => h && h.outcome && h.puzzleNo != null && !h.submittedAt,
+  );
+}
+
+export function markResultSubmitted(puzzleNo) {
+  const w = safeWindow();
+  if (!w) return;
+  const history = loadHistory();
+  const entry = history.find((h) => h.puzzleNo === puzzleNo);
+  if (!entry || entry.submittedAt) return;
+  entry.submittedAt = Date.now();
+  saveHistory(history);
+}
+
 // ── Daily plant log (local mirror of aphydle.daily_log) ──────────────────────
 // Every resolved daily puzzle is stamped here so the client always has a
 // trace of which plant was served on which day, even when Supabase isn't

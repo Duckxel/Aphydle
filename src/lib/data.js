@@ -30,6 +30,8 @@ import {
   getInstallEpoch,
   loadLocalDailyLog,
   appendLocalDailyLog,
+  loadUnsubmittedResults,
+  markResultSubmitted,
 } from "./storage.js";
 
 // Aphydle-specific tables (puzzle_results, page_visits, daily_log) live in
@@ -534,9 +536,42 @@ export async function submitResult(puzzleNo, outcome, guessCount) {
       },
       { onConflict: "puzzle_no,player_id", ignoreDuplicates: true },
     );
-    return !error;
-  } catch {
+    if (error) {
+      reportSubmitFailure(puzzleNo, error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    reportSubmitFailure(puzzleNo, e);
     return false;
+  }
+}
+
+// puzzle_results writes used to be entirely silent — a failure here meant
+// the world histogram missed the player and nobody could tell why. Surface
+// the actual PostgREST error so RLS / schema / network issues are debuggable.
+let loggedSubmitFailure = false;
+function reportSubmitFailure(puzzleNo, error) {
+  if (loggedSubmitFailure) return;
+  loggedSubmitFailure = true;
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[Aphydle] aphydle.puzzle_results write rejected for puzzle ${puzzleNo}. ` +
+      `code=${error?.code || "?"} message=${error?.message || "?"}`,
+    error,
+  );
+}
+
+// Retry every finished puzzle the local history hasn't confirmed yet.
+// Called on app load (and after each new finish) so a transient network
+// failure on the original submission gets reconciled the next time the
+// player opens Aphydle, instead of being lost forever.
+export async function flushPendingResults() {
+  if (!isSupabaseConfigured) return;
+  const pending = loadUnsubmittedResults();
+  for (const entry of pending) {
+    const ok = await submitResult(entry.puzzleNo, entry.outcome, entry.guessCount);
+    if (ok) markResultSubmitted(entry.puzzleNo);
   }
 }
 
